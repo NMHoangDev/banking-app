@@ -5,7 +5,6 @@ import {
   ChevronRight, 
   History, 
   FileText,
-  Filter,
   Download,
   Calendar,
   AlertCircle,
@@ -27,22 +26,78 @@ const initialBills = [
 ];
 
 export default function Bills() {
+  const [bills, setBills] = useState(initialBills);
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedBill, setSelectedBill] = useState<any>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
+  // 2-step Payment Flow Modal State
+  const [isPayModalOpen, setIsPayModalOpen] = useState(false);
+  const [billToPay, setBillToPay] = useState<any>(null);
+  const [payStep, setPayStep] = useState(1);
+  const [paymentAccount, setPaymentAccount] = useState('1000000001');
+
+  // Form state for creating a bill
+  const [newService, setNewService] = useState('Tiền điện EVN');
+  const [newProvider, setNewProvider] = useState('EVN Miền Bắc');
+  const [newCustomer, setNewCustomer] = useState('Nguyễn Văn Thành');
+  const [newAmount, setNewAmount] = useState('850,000');
+  const [newDueDate, setNewDueDate] = useState('30/11/2023');
+
   const filteredBills = useMemo(() => {
-    return initialBills.filter(bill => 
+    return bills.filter(bill => 
       bill.service.toLowerCase().includes(searchTerm.toLowerCase()) ||
       bill.id.includes(searchTerm) ||
       bill.customer.toLowerCase().includes(searchTerm.toLowerCase())
     );
-  }, [searchTerm]);
+  }, [searchTerm, bills]);
 
   const handleOpenDetail = (bill: any) => {
     setSelectedBill(bill);
     setIsDetailModalOpen(true);
+  };
+
+  const handleOpenPayFlow = (bill: any) => {
+    setBillToPay(bill);
+    setPayStep(1);
+    setIsPayModalOpen(true);
+  };
+
+  const handleNextStep = () => {
+    setPayStep(2);
+  };
+
+  const executePayment = () => {
+    if (!billToPay) return;
+    
+    // Update bill status to 'Paid'
+    setBills(prevBills => 
+      prevBills.map(b => 
+        b.id === billToPay.id ? { ...b, status: 'Paid' } : b
+      )
+    );
+
+    setPayStep(3); // Go to Success Screen
+  };
+
+  const handleCreateBill = (e: React.FormEvent) => {
+    e.preventDefault();
+    const generatedId = `BILL-${Math.floor(10000 + Math.random() * 90000)}`;
+    const newBill = {
+      id: generatedId,
+      service: newService,
+      customer: newCustomer,
+      amount: newAmount,
+      dueDate: newDueDate.split('-').reverse().join('/'), // Convert YYYY-MM-DD to DD/MM/YYYY
+      status: 'Unpaid',
+      provider: newProvider
+    };
+
+    setBills(prev => [newBill, ...prev]);
+    setIsAddModalOpen(false);
+    // Reset Form
+    setNewAmount('850,000');
   };
 
   return (
@@ -58,7 +113,7 @@ export default function Bills() {
         </div>
         <button 
           onClick={() => setIsAddModalOpen(true)}
-          className="bg-primary text-white px-6 py-2.5 rounded-xl flex items-center gap-2 font-bold shadow-md hover:bg-primary/90 transition-all active:scale-95 text-sm"
+          className="bg-[#002147] hover:bg-[#001936] text-white px-6 py-2.5 rounded-xl flex items-center gap-2 font-bold shadow-md transition-all active:scale-95 text-sm"
         >
           <Plus className="w-4 h-4" />
           Tạo hóa đơn mới
@@ -67,10 +122,10 @@ export default function Bills() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'HÓA ĐƠN THÁNG NÀY', value: '45,210', icon: <Receipt className="w-5 h-5" />, color: 'primary' },
-          { label: 'CHƯA THANH TOÁN', value: '1,250', icon: <Clock className="w-5 h-5" />, color: 'tertiary' },
-          { label: 'QUÁ HẠN 7 NGÀY', value: '142', icon: <AlertCircle className="w-5 h-5" />, color: 'error' },
-          { label: 'DOANH THU THU HỘ', value: '8.4B', icon: <TrendingUp className="w-5 h-5" />, color: 'secondary' },
+          { label: 'HÓA ĐƠN THÁNG NÀY', value: bills.length, icon: <Receipt className="w-5 h-5" />, color: 'primary' },
+          { label: 'CHƯA THANH TOÁN', value: bills.filter(b => b.status === 'Unpaid').length, icon: <Clock className="w-5 h-5" />, color: 'tertiary' },
+          { label: 'QUÁ HẠN 7 NGÀY', value: bills.filter(b => b.status === 'Overdue').length, icon: <AlertCircle className="w-5 h-5" />, color: 'error' },
+          { label: 'DOANH THU THU HỘ', value: bills.filter(b => b.status === 'Paid').reduce((sum, b) => sum + parseInt(b.amount.replace(/,/g, '')), 0).toLocaleString() + ' VND', icon: <TrendingUp className="w-5 h-5" />, color: 'secondary' },
         ].map((stat, i) => (
           <div key={i} className="bg-white p-5 rounded-2xl border border-outline-variant shadow-sm flex flex-col justify-between">
             <div className={cn("p-2.5 rounded-xl w-fit mb-4", `bg-${stat.color}-container text-on-${stat.color}-container`)}>
@@ -78,7 +133,7 @@ export default function Bills() {
             </div>
             <div>
               <p className="label-uppercase text-on-surface-variant mb-1">{stat.label}</p>
-              <p className="font-display font-bold text-2xl text-primary">{stat.value}</p>
+              <p className="font-display font-bold text-xl text-primary">{stat.value}</p>
             </div>
           </div>
         ))}
@@ -117,8 +172,8 @@ export default function Bills() {
               </tr>
             </thead>
             <tbody>
-              {filteredBills.map((bill, i) => (
-                <tr key={i}>
+              {filteredBills.map((bill) => (
+                <tr key={bill.id}>
                   <td>
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-primary/5 text-primary rounded-lg border border-primary/10">
@@ -153,19 +208,27 @@ export default function Bills() {
                       {bill.status === 'Paid' ? <CheckCircle2 className="w-3 h-3" /> : 
                        bill.status === 'Overdue' ? <AlertCircle className="w-3 h-3" /> : 
                        <Clock className="w-3 h-3" />}
-                      {bill.status === 'Paid' ? 'Đã thu' : bill.status === 'Overdue' ? 'Quá hạn' : 'Chờ thu'}
+                      {bill.status === 'Paid' ? 'Đã thanh toán' : bill.status === 'Overdue' ? 'Quá hạn' : 'Chờ thanh toán'}
                     </span>
                   </td>
                   <td className="text-right">
-                    <div className="flex justify-end gap-1">
+                    <div className="flex justify-end gap-2">
                       <button 
                         onClick={() => handleOpenDetail(bill)}
-                        className="p-1.5 hover:bg-surface-container-high rounded transition-colors text-on-surface-variant">
+                        className="p-1.5 hover:bg-surface-container-high rounded transition-colors text-primary"
+                        title="Xem chi tiết"
+                      >
                         <FileText className="w-4 h-4" />
                       </button>
-                      <button className="p-1.5 hover:bg-surface-container-high rounded transition-colors text-on-surface-variant">
-                        <History className="w-4 h-4" />
-                      </button>
+                      {bill.status !== 'Paid' && (
+                        <button 
+                          onClick={() => handleOpenPayFlow(bill)}
+                          className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded-lg uppercase shadow-sm transition-all"
+                          title="Thanh toán"
+                        >
+                          Thanh toán
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -182,36 +245,217 @@ export default function Bills() {
 
       {/* Add Bill Modal */}
       <Modal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} title="Tạo hóa đơn thanh toán mới">
-        <div className="p-6 space-y-4">
+        <form onSubmit={handleCreateBill} className="p-6 space-y-4">
           <div className="space-y-1.5">
             <label className="text-[10px] font-bold uppercase text-on-surface-variant">Loại dịch vụ</label>
-            <select className="w-full bg-surface border border-outline-variant rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary">
-              <option>Tiền điện EVN</option>
-              <option>Tiền nước Sawaco</option>
-              <option>Viễn thông / Internet</option>
-              <option>Phí chung cư / Dự án</option>
-              <option>Thuế / Phí nhà nước</option>
+            <select 
+              value={newService} 
+              onChange={(e) => {
+                setNewService(e.target.value);
+                const providers: Record<string, string> = {
+                  'Tiền điện EVN': 'EVN Miền Bắc',
+                  'Tiền nước Sawaco': 'Sawaco TP.HCM',
+                  'Internet Viettel': 'Viettel Telecom',
+                  'Chung cư Vinhomes': 'Vinhomes Management'
+                };
+                setNewProvider(providers[e.target.value] || 'Công ty viễn thông');
+              }}
+              className="w-full bg-surface border border-outline-variant rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              <option value="Tiền điện EVN">Tiền điện EVN</option>
+              <option value="Tiền nước Sawaco">Tiền nước Sawaco</option>
+              <option value="Internet Viettel">Viễn thông / Internet Viettel</option>
+              <option value="Chung cư Vinhomes">Phí chung cư / Vinhomes</option>
             </select>
           </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold uppercase text-on-surface-variant">Đối tác thu hộ (Provider)</label>
+            <input 
+              type="text" 
+              required
+              value={newProvider}
+              onChange={(e) => setNewProvider(e.target.value)}
+              className="w-full bg-surface border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none" 
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold uppercase text-on-surface-variant">Tên khách hàng</label>
+            <input 
+              type="text" 
+              required
+              value={newCustomer}
+              onChange={(e) => setNewCustomer(e.target.value)}
+              placeholder="Nhập tên chủ hộ/khách hàng..."
+              className="w-full bg-surface border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none" 
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase text-on-surface-variant">Mã khách hàng (Provider ID)</label>
-              <input type="text" placeholder="Vd: PE01..." className="w-full bg-surface border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none" />
+              <label className="text-[10px] font-bold uppercase text-on-surface-variant">Số tiền thu (VND)</label>
+              <input 
+                type="text" 
+                required
+                value={newAmount}
+                onChange={(e) => setNewAmount(e.target.value)}
+                placeholder="0 VNĐ" 
+                className="w-full bg-surface border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none" 
+              />
             </div>
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase text-on-surface-variant">Số tiền thu hộ</label>
-              <input type="text" placeholder="0 VNĐ" className="w-full bg-surface border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none" />
+              <label className="text-[10px] font-bold uppercase text-on-surface-variant">Ngày hết hạn</label>
+              <input 
+                type="date" 
+                required
+                value={newDueDate}
+                onChange={(e) => setNewDueDate(e.target.value)}
+                className="w-full bg-surface border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none" 
+              />
             </div>
           </div>
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-bold uppercase text-on-surface-variant">Ngày hết hạn thanh toán</label>
-            <input type="date" className="w-full bg-surface border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none" />
-          </div>
+
           <div className="pt-4 flex justify-end gap-3 border-t border-outline-variant">
-            <button onClick={() => setIsAddModalOpen(false)} className="px-6 py-2 rounded-lg text-sm font-bold text-on-surface-variant hover:bg-surface-container-low transition-all">Hủy bỏ</button>
-            <button className="px-6 py-2 rounded-lg text-sm font-bold bg-primary text-white shadow-sm hover:shadow-lg transition-all active:scale-95">Tạo hóa đơn</button>
+            <button type="button" onClick={() => setIsAddModalOpen(false)} className="px-6 py-2 rounded-lg text-sm font-bold text-on-surface-variant hover:bg-surface-container-low transition-all">Hủy bỏ</button>
+            <button type="submit" className="px-6 py-2 rounded-lg text-sm font-bold bg-[#002147] text-white shadow-sm hover:shadow-lg transition-all active:scale-95">Tạo hóa đơn</button>
           </div>
-        </div>
+        </form>
+      </Modal>
+
+      {/* 2-Step Bill Payment Modal */}
+      <Modal isOpen={isPayModalOpen} onClose={() => setIsPayModalOpen(false)} title="Thanh toán hóa đơn">
+        {billToPay && (
+          <div className="p-6 space-y-4">
+            {/* Step Indicators */}
+            <div className="flex items-center justify-center gap-4 mb-4">
+              <div className={cn("w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold", payStep >= 1 ? "bg-[#002147] text-white" : "bg-surface-container-high text-on-surface-variant")}>1</div>
+              <div className="w-12 h-0.5 bg-outline-variant"></div>
+              <div className={cn("w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold", payStep >= 2 ? "bg-[#002147] text-white" : "bg-surface-container-high text-on-surface-variant")}>2</div>
+              <div className="w-12 h-0.5 bg-outline-variant"></div>
+              <div className={cn("w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold", payStep >= 3 ? "bg-emerald-600 text-white" : "bg-surface-container-high text-on-surface-variant")}>
+                {payStep === 3 ? <CheckCircle2 className="w-4 h-4" /> : "3"}
+              </div>
+            </div>
+
+            {/* Step 1: Chọn hóa đơn & tài khoản thanh toán */}
+            {payStep === 1 && (
+              <div className="space-y-4">
+                <div className="p-4 bg-surface-container rounded-2xl border border-outline-variant/30">
+                  <p className="text-[9px] font-bold text-outline uppercase tracking-wider mb-1">Hóa đơn cần thanh toán</p>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h4 className="text-sm font-bold text-[#002147]">{billToPay.service}</h4>
+                      <p className="text-[10px] text-on-surface-variant font-bold uppercase">{billToPay.provider} ({billToPay.id})</p>
+                    </div>
+                    <span className="text-base font-bold text-[#002147]">{billToPay.amount} VND</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase text-on-surface-variant">Chọn tài khoản thanh toán</label>
+                  <select 
+                    value={paymentAccount} 
+                    onChange={(e) => setPaymentAccount(e.target.value)}
+                    className="w-full bg-surface border border-outline-variant rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                  >
+                    <option value="1000000001">1000000001 - Nguyễn Văn Thành ( saving ) • Số dư: 245,000,000 VND</option>
+                    <option value="1000000003">1000000003 - Lê Minh Hoàng ( payment ) • Số dư: 18,500,000 VND</option>
+                    <option value="1000000002">1000000002 - Vũ Anh Duy ( personal ) • Số dư: 45,000,000 VND</option>
+                  </select>
+                </div>
+
+                <div className="pt-4 flex justify-end gap-3 border-t border-outline-variant">
+                  <button onClick={() => setIsPayModalOpen(false)} className="px-6 py-2 rounded-lg text-sm font-bold text-on-surface-variant hover:bg-surface-container-low transition-all">Hủy bỏ</button>
+                  <button onClick={handleNextStep} className="px-6 py-2 rounded-lg text-sm font-bold bg-[#002147] text-white shadow-sm hover:shadow-lg transition-all flex items-center gap-2">
+                    Tiếp tục <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 2: Xác nhận thanh toán */}
+            {payStep === 2 && (
+              <div className="space-y-4">
+                <div className="p-4 bg-yellow-50/50 rounded-2xl border border-yellow-200 flex gap-3 items-start">
+                  <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-800 leading-relaxed">
+                    Bạn đang thực hiện thanh toán hóa đơn. Hãy chắc chắn các thông tin dưới đây là hoàn toàn chính xác trước khi xác nhận.
+                  </p>
+                </div>
+
+                <div className="space-y-2.5 p-4 bg-surface rounded-2xl border border-outline-variant/30">
+                  <div className="flex justify-between items-center text-xs pb-2 border-b border-outline-variant/20">
+                    <span className="text-on-surface-variant">Dịch vụ</span>
+                    <span className="font-bold text-primary">{billToPay.service}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs pb-2 border-b border-outline-variant/20">
+                    <span className="text-on-surface-variant">Đối tác thu</span>
+                    <span className="font-bold">{billToPay.provider}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs pb-2 border-b border-outline-variant/20">
+                    <span className="text-on-surface-variant">Tài khoản thanh toán</span>
+                    <span className="font-mono font-bold text-primary">{paymentAccount}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs pb-2 border-b border-outline-variant/20">
+                    <span className="text-on-surface-variant">Số tiền thanh toán</span>
+                    <span className="font-bold text-[#002147] text-sm">{billToPay.amount} VND</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-on-surface-variant">Phí giao dịch</span>
+                    <span className="font-bold text-emerald-600">Miễn phí (0 VND)</span>
+                  </div>
+                </div>
+
+                <div className="pt-4 flex justify-end gap-3 border-t border-outline-variant">
+                  <button onClick={() => setPayStep(1)} className="px-6 py-2 rounded-lg text-sm font-bold text-on-surface-variant hover:bg-surface-container-low transition-all">Quay lại</button>
+                  <button onClick={executePayment} className="px-6 py-2 rounded-lg text-sm font-bold bg-emerald-600 text-white shadow-sm hover:shadow-lg transition-all active:scale-95">
+                    Xác nhận thanh toán
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Kết quả thanh toán */}
+            {payStep === 3 && (
+              <div className="text-center py-6 space-y-4">
+                <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto text-emerald-600 shadow-inner">
+                  <CheckCircle2 className="w-8 h-8" />
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-lg text-primary">Thanh toán thành công!</h3>
+                  <p className="text-xs text-on-surface-variant mt-1">Hóa đơn dịch vụ của bạn đã được thanh toán hoàn tất.</p>
+                </div>
+
+                <div className="p-4 bg-surface-container-low rounded-2xl border border-outline-variant/30 text-left space-y-2 max-w-sm mx-auto">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-outline">Mã giao dịch:</span>
+                    <span className="font-mono font-bold">#TXN-{Math.floor(100000 + Math.random() * 900000)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-outline">Dịch vụ:</span>
+                    <span className="font-bold">{billToPay.service}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-outline">Số tiền:</span>
+                    <span className="font-bold text-primary">{billToPay.amount} VND</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-outline">Từ tài khoản:</span>
+                    <span className="font-mono font-bold">{paymentAccount}</span>
+                  </div>
+                </div>
+
+                <button 
+                  onClick={() => setIsPayModalOpen(false)} 
+                  className="w-full max-w-xs py-2.5 bg-[#002147] hover:bg-[#001936] text-white text-xs font-bold rounded-xl shadow-md transition-all uppercase"
+                >
+                  Hoàn tất
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </Modal>
 
       {/* Detail Modal */}
@@ -224,45 +468,45 @@ export default function Bills() {
               </div>
               <h4 className="font-display font-bold text-lg text-primary">{selectedBill.service}</h4>
               <p className="text-[10px] font-bold uppercase tracking-widest text-outline">{selectedBill.provider}</p>
-              <div className="mt-4 py-2 px-6 bg-white rounded-full border border-outline-variant shadow-inner font-numeric-data text-2xl font-bold text-primary">
+              <div className="mt-4 py-2 px-6 bg-white rounded-full border border-outline-variant shadow-inner font-numeric-data text-xl font-bold text-primary">
                 {selectedBill.amount} VNĐ
               </div>
             </div>
 
             <div className="space-y-3">
-              <div className="flex justify-between items-center text-sm py-2 border-b border-outline-variant/30">
+              <div className="flex justify-between items-center text-xs py-2 border-b border-outline-variant/30">
                 <span className="text-on-surface-variant">Mã hóa đơn</span>
                 <span className="font-bold text-primary">{selectedBill.id}</span>
               </div>
-              <div className="flex justify-between items-center text-sm py-2 border-b border-outline-variant/30">
+              <div className="flex justify-between items-center text-xs py-2 border-b border-outline-variant/30">
                 <span className="text-on-surface-variant">Khách hàng</span>
                 <span className="font-bold">{selectedBill.customer}</span>
               </div>
-              <div className="flex justify-between items-center text-sm py-2 border-b border-outline-variant/30">
+              <div className="flex justify-between items-center text-xs py-2 border-b border-outline-variant/30">
                 <span className="text-on-surface-variant">Hạn thanh toán</span>
                 <span className="font-bold text-error">{selectedBill.dueDate}</span>
               </div>
-              <div className="flex justify-between items-center text-sm py-2 border-b border-outline-variant/30">
+              <div className="flex justify-between items-center text-xs py-2 border-b border-outline-variant/30">
                 <span className="text-on-surface-variant">Trạng thái</span>
                 <span className={cn(
-                  "font-bold uppercase text-[10px]",
-                  selectedBill.status === 'Paid' ? 'text-secondary' : 'text-error'
-                )}>{selectedBill.status}</span>
+                  "font-bold uppercase text-[9px] px-2.5 py-0.5 rounded-full",
+                  selectedBill.status === 'Paid' ? 'bg-secondary-container text-on-secondary-container' : 'bg-error-container text-on-error-container'
+                )}>{selectedBill.status === 'Paid' ? 'Đã thu' : 'Chờ thu'}</span>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3 pt-4">
               <button className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-surface border border-outline-variant hover:bg-surface-container-low transition-all">
                 <History className="w-6 h-6 text-primary" />
-                <span className="text-[9px] font-bold uppercase">Lịch sử thu</span>
+                <span className="text-[9px] font-bold uppercase text-primary">Lịch sử thu</span>
               </button>
               <button className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-surface border border-outline-variant hover:bg-surface-container-low transition-all">
                 <CreditCard className="w-6 h-6 text-primary" />
-                <span className="text-[9px] font-bold uppercase">Gửi nhắc nhợ</span>
+                <span className="text-[9px] font-bold uppercase text-primary">Gửi nhắc nhợ</span>
               </button>
             </div>
 
-            <button className="w-full py-3 bg-primary text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-primary/90 transition-all">
+            <button className="w-full py-3 bg-[#002147] text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-[#001936] transition-all">
               In hóa đơn thu hộ <ArrowRight className="w-4 h-4" />
             </button>
           </div>
@@ -271,4 +515,3 @@ export default function Bills() {
     </div>
   );
 }
-

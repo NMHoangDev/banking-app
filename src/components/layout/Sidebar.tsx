@@ -13,6 +13,7 @@ const navItems = [
   { icon: 'person_add', label: 'Beneficiaries', path: '/beneficiaries' },
   { icon: 'location_on', label: 'Branches', path: '/branches' },
   { icon: 'manage_accounts', label: 'Users', path: '/users' },
+  { icon: 'bar_chart', label: 'Reports', path: '/reports' },
   { icon: 'history', label: 'Audit Logs', path: '/audit-logs' },
   { icon: 'settings', label: 'Settings', path: '/settings' },
 ];
