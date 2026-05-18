@@ -1,215 +1,768 @@
-import React from 'react';
-import { 
-  ChevronRight, 
-  Download, 
-  Plus, 
-  Search, 
-  RefreshCw, 
+import React, { useMemo, useState } from 'react';
+import {
+  ArrowRightLeft,
+  BadgeCheck,
   Calendar,
   ChevronLeft,
-  ChevronRight as ChevronRightIcon,
-  ChevronsLeft,
-  ChevronsRight,
+  ChevronRight,
+  Download,
   Eye,
-  Undo2,
-  ArrowRight,
+  FileText,
+  Filter,
+  History,
+  Printer,
+  ReceiptText,
+  RefreshCw,
+  RotateCcw,
+  Search,
   ShieldAlert,
-  Contact2,
-  TrendingUp,
-  ReceiptText
+  X,
+  XCircle,
+  Clock3,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
-const transactions = [
-  { id: 'TXN-88219405', sender: 'TechCorp VN', senderAcc: '****5521', receiver: 'Logistics Global', receiverAcc: '****9902', amount: '15,000.00 USD', type: 'Transfer', status: 'COMPLETED', time: '30/10/2023 14:22:10', fee: '25.00 USD' },
-  { id: 'TXN-88219406', sender: 'An Binh Co.', senderAcc: '****1123', receiver: 'Nguyen Van B', receiverAcc: '****8877', amount: '2,450.00 USD', type: 'Transfer', status: 'PENDING', time: '30/10/2023 15:45:01', fee: '5.00 USD' },
-  { id: 'TXN-88219407', sender: 'Investment Fund X', senderAcc: '****3344', receiver: 'Main Account', receiverAcc: '****0011', amount: '50,000.00 USD', type: 'Interest', status: 'FAILED', time: '30/10/2023 16:10:55', fee: '0.00 USD' },
-  { id: 'TXN-88219408', sender: 'Retailer ABC', senderAcc: '****2211', receiver: 'Supplier XYZ', receiverAcc: '****4455', amount: '8,920.50 USD', type: 'Transfer', status: 'REVERSED', time: '30/10/2023 09:12:30', fee: '12.50 USD' },
-  { id: 'TXN-88219409', sender: 'User Personal', senderAcc: '****9988', receiver: 'Savings Account', receiverAcc: '****0000', amount: '500.00 USD', type: 'Transfer', status: 'CANCELLED', time: '29/10/2023 23:59:59', fee: '0.00 USD' },
+type TransactionStatus =
+  | 'PENDING'
+  | 'COMPLETED'
+  | 'FAILED'
+  | 'REVERSED'
+  | 'CANCELLED';
+
+type TransactionType =
+  | 'INTERNAL_TRANSFER'
+  | 'BILL_PAYMENT'
+  | 'LOAN_PAYMENT'
+  | 'INTEREST'
+  | 'REVERSAL';
+
+type Transaction = {
+  transactionId: string;
+  fromAccount: string;
+  toAccount: string;
+  senderName: string;
+  receiverName: string;
+  type: TransactionType;
+  amount: number;
+  fee: number;
+  status: TransactionStatus;
+  createdAt: string;
+  performedBy: string;
+  note: string;
+  logs: {
+    action: string;
+    performedBy: string;
+    createdAt: string;
+  }[];
+};
+
+const initialTransactions: Transaction[] = [
+  {
+    transactionId: 'TXN-49021',
+    fromAccount: '1000000001',
+    toAccount: '1000000002',
+    senderName: 'Nguyễn Văn Hoàng',
+    receiverName: 'Trần Thị Lan',
+    type: 'INTERNAL_TRANSFER',
+    amount: 25000000,
+    fee: 2000,
+    status: 'COMPLETED',
+    createdAt: '2023-10-24 14:20',
+    performedBy: 'CUSTOMER: CUS-0001',
+    note: 'Chuyển tiền nội bộ',
+    logs: [
+      {
+        action: 'TRANSFER_CREATED',
+        performedBy: 'CUS-0001',
+        createdAt: '2023-10-24 14:20',
+      },
+      {
+        action: 'BALANCE_UPDATED',
+        performedBy: 'SYSTEM',
+        createdAt: '2023-10-24 14:20',
+      },
+      {
+        action: 'TRANSACTION_COMPLETED',
+        performedBy: 'SYSTEM',
+        createdAt: '2023-10-24 14:20',
+      },
+    ],
+  },
+  {
+    transactionId: 'TXN-49022',
+    fromAccount: '1000000010',
+    toAccount: 'EVN-BILL-1022',
+    senderName: 'Trần Thị Lan',
+    receiverName: 'EVN',
+    type: 'BILL_PAYMENT',
+    amount: 320000,
+    fee: 0,
+    status: 'PENDING',
+    createdAt: '2023-10-24 14:15',
+    performedBy: 'CUSTOMER: CUS-0002',
+    note: 'Thanh toán hóa đơn điện',
+    logs: [
+      {
+        action: 'PAYMENT_CREATED',
+        performedBy: 'CUS-0002',
+        createdAt: '2023-10-24 14:15',
+      },
+    ],
+  },
+  {
+    transactionId: 'TXN-49023',
+    fromAccount: '1000000021',
+    toAccount: '1000000034',
+    senderName: 'Phạm Anh Tuấn',
+    receiverName: 'Lê Minh',
+    type: 'INTERNAL_TRANSFER',
+    amount: 2300000,
+    fee: 2000,
+    status: 'FAILED',
+    createdAt: '2023-10-24 13:58',
+    performedBy: 'CUSTOMER: CUS-0003',
+    note: 'Không đủ số dư khả dụng',
+    logs: [
+      {
+        action: 'TRANSFER_CREATED',
+        performedBy: 'CUS-0003',
+        createdAt: '2023-10-24 13:58',
+      },
+      {
+        action: 'VALIDATION_FAILED_INSUFFICIENT_BALANCE',
+        performedBy: 'SYSTEM',
+        createdAt: '2023-10-24 13:58',
+      },
+    ],
+  },
+  {
+    transactionId: 'TXN-49024',
+    fromAccount: '1000000045',
+    toAccount: 'LOAN-3001',
+    senderName: 'Công ty Minh Long',
+    receiverName: 'Enterprise Bank',
+    type: 'LOAN_PAYMENT',
+    amount: 85000000,
+    fee: 0,
+    status: 'COMPLETED',
+    createdAt: '2023-10-24 13:45',
+    performedBy: 'EMPLOYEE: EMP-0009',
+    note: 'Thanh toán khoản vay',
+    logs: [
+      {
+        action: 'LOAN_PAYMENT_CREATED',
+        performedBy: 'EMP-0009',
+        createdAt: '2023-10-24 13:45',
+      },
+      {
+        action: 'TRANSACTION_COMPLETED',
+        performedBy: 'SYSTEM',
+        createdAt: '2023-10-24 13:45',
+      },
+    ],
+  },
+  {
+    transactionId: 'TXN-49025',
+    fromAccount: '1000000091',
+    toAccount: '1000000095',
+    senderName: 'Phạm Gia Hân',
+    receiverName: 'Nguyễn Nhật Nam',
+    type: 'REVERSAL',
+    amount: 5000000,
+    fee: 0,
+    status: 'REVERSED',
+    createdAt: '2023-10-24 13:22',
+    performedBy: 'ADMIN: ADM-0001',
+    note: 'Hoàn tiền giao dịch nhầm',
+    logs: [
+      {
+        action: 'REVERSAL_REQUESTED',
+        performedBy: 'ADM-0001',
+        createdAt: '2023-10-24 13:20',
+      },
+      {
+        action: 'TRANSACTION_REVERSED',
+        performedBy: 'SYSTEM',
+        createdAt: '2023-10-24 13:22',
+      },
+    ],
+  },
 ];
 
-export default function Transactions() {
+function formatMoney(value: number) {
+  return `${new Intl.NumberFormat('vi-VN').format(value)} VND`;
+}
+
+function statusBadge(status: TransactionStatus) {
+  const styles: Record<TransactionStatus, string> = {
+    PENDING: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+    COMPLETED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    FAILED: 'bg-red-50 text-red-700 border-red-200',
+    REVERSED: 'bg-purple-50 text-purple-700 border-purple-200',
+    CANCELLED: 'bg-slate-50 text-slate-600 border-slate-200',
+  };
+
   return (
-    <div className="space-y-8">
-      <div className="flex justify-between items-end">
-        <div>
-          <nav className="flex text-xs font-bold text-on-surface-variant mb-2 gap-2 uppercase tracking-widest items-center">
-            <span>Transactions</span>
-            <ChevronRight className="w-3 h-3" />
-            <span className="text-primary font-bold">Giám sát giao dịch</span>
-          </nav>
-          <h2 className="font-display font-bold text-3xl text-on-surface tracking-tight">Giám sát giao dịch</h2>
-        </div>
-        <div className="flex gap-3">
-          <button className="flex items-center gap-2 px-5 py-2.5 border border-outline text-on-surface font-bold text-sm rounded-xl hover:bg-surface-container-low transition-all shadow-sm">
-            <Download className="w-4.5 h-4.5" />
-            Xuất báo cáo
-          </button>
-          <button className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white font-bold text-sm rounded-xl hover:shadow-xl transition-all shadow-md active:scale-95">
-            <Plus className="w-5 h-5" />
-            Tạo giao dịch mới
-          </button>
-        </div>
-      </div>
+    <span
+      className={cn(
+        'inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-bold',
+        styles[status]
+      )}
+    >
+      {status}
+    </span>
+  );
+}
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        {[
-          { label: 'Tổng thanh khoản', value: '1,284,050.00', unit: 'USD', change: '+12.4%', icon: 'show_chart', color: 'text-secondary' },
-          { label: 'Giao dịch chờ', value: '42', unit: '', desc: 'Cần phê duyệt trong 2h tới', icon: 'pending_actions', color: 'text-on-tertiary-container' },
-          { label: 'Tỷ lệ lỗi', value: '0.04%', unit: '', change: 'Tăng 0.01%', icon: 'error', color: 'text-error' },
-          { label: 'Tổng phí (24h)', value: '14,250.50', unit: 'USD', desc: 'Dựa trên 1,420 giao dịch', icon: 'receipt', color: 'text-primary' },
-        ].map((stat, i) => (
-          <div key={i} className="bg-white p-6 border border-outline-variant rounded-3xl shadow-sm hover:shadow-lg transition-all group">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-on-surface-variant label-uppercase font-bold tracking-[0.08em] opacity-70">{stat.label}</span>
-              <span className={cn("material-symbols-outlined text-2xl group-hover:scale-110 transition-transform", stat.color)}>{stat.icon}</span>
-            </div>
-            <div className="text-3xl font-display font-bold text-on-surface tracking-tighter">
-              {stat.value} {stat.unit && <span className="text-sm font-bold opacity-40">{stat.unit}</span>}
-            </div>
-            {stat.change && (
-              <div className={cn("mt-2 text-[10px] flex items-center gap-1 font-bold", stat.change.includes('+') || stat.change.includes('Tăng') ? 'text-secondary' : 'text-error')}>
-                <TrendingUp className="w-3 h-3" />
-                {stat.change} {stat.label.includes('thanh khoản') && 'so với tháng trước'}
-              </div>
-            )}
-            {stat.desc && <div className="mt-2 text-[10px] text-on-surface-variant font-bold opacity-60 uppercase tracking-widest">{stat.desc}</div>}
+function statusIcon(status: TransactionStatus) {
+  if (status === 'COMPLETED') return <BadgeCheck className="h-4 w-4 text-emerald-600" />;
+  if (status === 'PENDING') return <Clock3 className="h-4 w-4 text-yellow-600" />;
+  if (status === 'FAILED') return <XCircle className="h-4 w-4 text-red-600" />;
+  if (status === 'REVERSED') return <RotateCcw className="h-4 w-4 text-purple-600" />;
+  return <XCircle className="h-4 w-4 text-slate-500" />;
+}
+
+function Modal({
+  open,
+  title,
+  children,
+  onClose,
+  maxWidth = 'max-w-5xl',
+}: {
+  open: boolean;
+  title: string;
+  children: React.ReactNode;
+  onClose: () => void;
+  maxWidth?: string;
+}) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
+      <div className={cn('max-h-[90vh] w-full overflow-hidden rounded-3xl bg-white shadow-2xl', maxWidth)}>
+        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+          <h3 className="text-lg font-bold text-slate-950">{title}</h3>
+          <button
+            onClick={onClose}
+            className="rounded-xl border border-slate-200 p-2 text-slate-500 hover:bg-slate-50"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="max-h-[calc(90vh-73px)] overflow-y-auto">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+export default function Transactions() {
+  const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | TransactionStatus>('ALL');
+  const [typeFilter, setTypeFilter] = useState<'ALL' | TransactionType>('ALL');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [minAmount, setMinAmount] = useState('');
+  const [maxAmount, setMaxAmount] = useState('');
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [reverseOpen, setReverseOpen] = useState(false);
+
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter((item) => {
+      const keyword = searchTerm.trim().toLowerCase();
+
+      const matchSearch =
+        item.transactionId.toLowerCase().includes(keyword) ||
+        item.fromAccount.includes(keyword) ||
+        item.toAccount.includes(keyword) ||
+        item.senderName.toLowerCase().includes(keyword) ||
+        item.receiverName.toLowerCase().includes(keyword);
+
+      const matchStatus = statusFilter === 'ALL' || item.status === statusFilter;
+      const matchType = typeFilter === 'ALL' || item.type === typeFilter;
+      const matchMin = !minAmount || item.amount >= Number(minAmount);
+      const matchMax = !maxAmount || item.amount <= Number(maxAmount);
+      const dateOnly = item.createdAt.slice(0, 10);
+      const matchFromDate = !fromDate || dateOnly >= fromDate;
+      const matchToDate = !toDate || dateOnly <= toDate;
+
+      return (
+        matchSearch &&
+        matchStatus &&
+        matchType &&
+        matchMin &&
+        matchMax &&
+        matchFromDate &&
+        matchToDate
+      );
+    });
+  }, [transactions, searchTerm, statusFilter, typeFilter, fromDate, toDate, minAmount, maxAmount]);
+
+  const summary = useMemo(() => {
+    return {
+      total: transactions.length,
+      completed: transactions.filter((item) => item.status === 'COMPLETED').length,
+      pending: transactions.filter((item) => item.status === 'PENDING').length,
+      failed: transactions.filter((item) => item.status === 'FAILED').length,
+      totalAmount: transactions
+        .filter((item) => item.status === 'COMPLETED')
+        .reduce((sum, item) => sum + item.amount, 0),
+    };
+  }, [transactions]);
+
+  const openDetail = (transaction: Transaction) => {
+    setSelectedTransaction(transaction);
+    setDetailOpen(true);
+  };
+
+  const openReverse = (transaction: Transaction) => {
+    setSelectedTransaction(transaction);
+    setReverseOpen(true);
+  };
+
+  const reverseTransaction = () => {
+    if (!selectedTransaction) return;
+
+    setTransactions((prev) =>
+      prev.map((item) =>
+        item.transactionId === selectedTransaction.transactionId
+          ? {
+            ...item,
+            status: 'REVERSED',
+            logs: [
+              ...item.logs,
+              {
+                action: 'REVERSAL_REQUESTED',
+                performedBy: 'ADMIN: ADM-0001',
+                createdAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
+              },
+              {
+                action: 'TRANSACTION_REVERSED',
+                performedBy: 'SYSTEM',
+                createdAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
+              },
+            ],
+          }
+          : item
+      )
+    );
+
+    setReverseOpen(false);
+    setDetailOpen(false);
+  };
+
+  return (
+    <div className="min-h-screen space-y-6 bg-slate-50 p-4 text-slate-900 md:p-6">
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-center">
+          <div>
+            <nav className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-500">
+              <span>Transfers</span>
+              <ChevronRight className="h-4 w-4" />
+              <span className="text-[#002147]">Transaction History</span>
+            </nav>
+
+            <h2 className="text-2xl font-bold tracking-tight text-slate-950 md:text-3xl">
+              Lịch sử giao dịch
+            </h2>
+
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
+              Tra cứu giao dịch, xem chi tiết, biên lai, trạng thái xử lý, log nghiệp vụ và lọc các giao dịch FAILED / CANCELLED / REVERSED để đối soát.
+            </p>
           </div>
-        ))}
-      </div>
 
-      <div className="bg-surface-container-low p-8 border border-outline-variant rounded-3xl flex flex-wrap items-center gap-8 shadow-inner">
-        <div className="flex flex-col gap-2 min-w-[180px]">
-          <label className="label-uppercase tracking-[0.1em] text-on-surface-variant font-black">Trạng thái</label>
-          <select className="bg-white border border-outline-variant rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-primary shadow-sm">
-            <option>Tất cả trạng thái</option>
-            <option>COMPLETED</option>
-            <option>PENDING</option>
-            <option>FAILED</option>
-          </select>
-        </div>
-        <div className="flex flex-col gap-2 min-w-[180px]">
-          <label className="label-uppercase tracking-[0.1em] text-on-surface-variant font-black">Loại giao dịch</label>
-          <select className="bg-white border border-outline-variant rounded-xl px-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-primary shadow-sm">
-            <option>Tất cả loại</option>
-            <option>Transfer</option>
-            <option>Interest</option>
-          </select>
-        </div>
-        <div className="flex flex-col gap-2 min-w-[240px]">
-          <label className="label-uppercase tracking-[0.1em] text-on-surface-variant font-black">Khoảng ngày</label>
-          <div className="relative">
-            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant w-4 h-4" />
-            <input className="w-full bg-white border border-outline-variant rounded-xl pl-10 pr-4 py-2.5 text-sm font-bold focus:ring-2 focus:ring-primary shadow-sm" type="text" defaultValue="01/10/2023 - 31/10/2023" />
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <button className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+              <RefreshCw className="h-4 w-4" />
+              Làm mới
+            </button>
+            <button className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#002147] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#001936]">
+              <Download className="h-4 w-4" />
+              Xuất CSV/PDF
+            </button>
           </div>
         </div>
-        <div className="pt-7 flex gap-3 ml-auto">
-          <button className="p-2.5 text-on-surface-variant hover:bg-white rounded-xl transition-all shadow-sm group">
-            <RefreshCw className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" />
-          </button>
-          <button className="bg-primary px-8 py-2.5 text-white font-bold rounded-xl hover:scale-[1.02] shadow-lg shadow-primary/20 transition-all uppercase tracking-widest text-xs">
-            Áp dụng bộ lọc
-          </button>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <ReceiptText className="mb-4 h-6 w-6 text-[#002147]" />
+          <p className="text-xs font-bold uppercase text-slate-500">Tổng giao dịch</p>
+          <p className="mt-2 text-3xl font-bold">{summary.total}</p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <BadgeCheck className="mb-4 h-6 w-6 text-emerald-600" />
+          <p className="text-xs font-bold uppercase text-slate-500">Hoàn tất</p>
+          <p className="mt-2 text-3xl font-bold">{summary.completed}</p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <Clock3 className="mb-4 h-6 w-6 text-yellow-600" />
+          <p className="text-xs font-bold uppercase text-slate-500">Đang chờ</p>
+          <p className="mt-2 text-3xl font-bold">{summary.pending}</p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <XCircle className="mb-4 h-6 w-6 text-red-600" />
+          <p className="text-xs font-bold uppercase text-slate-500">Thất bại</p>
+          <p className="mt-2 text-3xl font-bold">{summary.failed}</p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <ArrowRightLeft className="mb-4 h-6 w-6 text-purple-600" />
+          <p className="text-xs font-bold uppercase text-slate-500">Tổng tiền COMPLETED</p>
+          <p className="mt-2 text-2xl font-bold">{formatMoney(summary.totalAmount)}</p>
         </div>
       </div>
 
-      <div className="bg-white border border-outline-variant rounded-3xl overflow-hidden shadow-sm">
+      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 bg-slate-50/70 p-4">
+          <div className="grid grid-cols-1 gap-3 xl:grid-cols-12">
+            <div className="relative xl:col-span-4">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Tìm mã giao dịch, số tài khoản, tên người gửi/nhận..."
+                className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm outline-none focus:border-[#002147]"
+              />
+            </div>
+
+            <select
+              value={typeFilter}
+              onChange={(event) => setTypeFilter(event.target.value as 'ALL' | TransactionType)}
+              className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-[#002147] xl:col-span-2"
+            >
+              <option value="ALL">Tất cả loại GD</option>
+              <option value="INTERNAL_TRANSFER">INTERNAL_TRANSFER</option>
+              <option value="BILL_PAYMENT">BILL_PAYMENT</option>
+              <option value="LOAN_PAYMENT">LOAN_PAYMENT</option>
+              <option value="INTEREST">INTEREST</option>
+              <option value="REVERSAL">REVERSAL</option>
+            </select>
+
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value as 'ALL' | TransactionStatus)}
+              className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-[#002147] xl:col-span-2"
+            >
+              <option value="ALL">Tất cả trạng thái</option>
+              <option value="PENDING">PENDING</option>
+              <option value="COMPLETED">COMPLETED</option>
+              <option value="FAILED">FAILED</option>
+              <option value="REVERSED">REVERSED</option>
+              <option value="CANCELLED">CANCELLED</option>
+            </select>
+
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(event) => setFromDate(event.target.value)}
+              className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-[#002147] xl:col-span-2"
+            />
+
+            <input
+              type="date"
+              value={toDate}
+              onChange={(event) => setToDate(event.target.value)}
+              className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-[#002147] xl:col-span-2"
+            />
+
+            <input
+              type="number"
+              value={minAmount}
+              onChange={(event) => setMinAmount(event.target.value)}
+              placeholder="Số tiền từ"
+              className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-[#002147] xl:col-span-2"
+            />
+
+            <input
+              type="number"
+              value={maxAmount}
+              onChange={(event) => setMaxAmount(event.target.value)}
+              placeholder="Số tiền đến"
+              className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-[#002147] xl:col-span-2"
+            />
+
+            <button
+              onClick={() => setStatusFilter('FAILED')}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-bold text-red-700 hover:bg-red-100 xl:col-span-2"
+            >
+              <ShieldAlert className="h-4 w-4" />
+              Giao dịch lỗi
+            </button>
+
+            <button className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 hover:bg-slate-50 xl:col-span-2">
+              <Filter className="h-4 w-4" />
+              Lọc nâng cao
+            </button>
+          </div>
+        </div>
+
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full min-w-[1250px] border-collapse text-left">
             <thead>
-              <tr className="bg-surface-container-low/50 border-b border-outline-variant">
-                <th className="px-6 py-5 label-uppercase text-on-surface-variant">ID Giao dịch</th>
-                <th className="px-6 py-5 label-uppercase text-on-surface-variant">Người gửi</th>
-                <th className="px-6 py-5 label-uppercase text-on-surface-variant">Người nhận</th>
-                <th className="px-6 py-5 label-uppercase text-on-surface-variant text-right">Số tiền</th>
-                <th className="px-6 py-5 label-uppercase text-on-surface-variant">Loại</th>
-                <th className="px-6 py-5 label-uppercase text-on-surface-variant">Trạng thái</th>
-                <th className="px-6 py-5 label-uppercase text-on-surface-variant">Thời gian tạo</th>
-                <th className="px-6 py-5 label-uppercase text-on-surface-variant text-center">Thao tác</th>
+              <tr className="border-b border-slate-200 bg-white">
+                <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500">Mã GD</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500">Người gửi</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500">Người nhận</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500">Loại</th>
+                <th className="px-6 py-4 text-right text-xs font-bold uppercase text-slate-500">Số tiền</th>
+                <th className="px-6 py-4 text-right text-xs font-bold uppercase text-slate-500">Phí</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500">Trạng thái</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500">Thời gian</th>
+                <th className="px-6 py-4 text-right text-xs font-bold uppercase text-slate-500">Thao tác</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-outline-variant/30">
-              {transactions.map((txn, i) => (
-                <tr key={i} className="hover:bg-primary/5 transition-colors group">
-                  <td className="px-6 py-5 font-numeric text-primary font-bold tracking-tight">{txn.id}</td>
-                  <td className="px-6 py-5">
-                    <div className="flex flex-col">
-                      <span className="font-bold text-sm font-display">{txn.sender}</span>
-                      <span className="text-[10px] font-bold text-on-surface-variant opacity-60 tracking-wider">A/C: {txn.senderAcc}</span>
-                    </div>
+
+            <tbody className="divide-y divide-slate-100">
+              {filteredTransactions.map((item) => (
+                <tr key={item.transactionId} className="hover:bg-slate-50">
+                  <td className="px-6 py-4 font-mono text-sm font-bold text-[#002147]">
+                    {item.transactionId}
                   </td>
-                  <td className="px-6 py-5">
-                    <div className="flex flex-col">
-                      <span className="font-bold text-sm font-display">{txn.receiver}</span>
-                      <span className="text-[10px] font-bold text-on-surface-variant opacity-60 tracking-wider">A/C: {txn.receiverAcc}</span>
-                    </div>
+
+                  <td className="px-6 py-4">
+                    <p className="text-sm font-bold text-slate-950">{item.senderName}</p>
+                    <p className="font-mono text-xs text-slate-500">{item.fromAccount}</p>
                   </td>
-                  <td className="px-6 py-5 text-right font-numeric font-bold text-sm text-on-surface">{txn.amount}</td>
-                  <td className="px-6 py-5">
-                    <span className="text-[10px] font-black px-2.5 py-1 bg-surface-container-highest/50 rounded-lg text-on-surface-variant uppercase tracking-widest ring-1 ring-outline-variant/20">{txn.type}</span>
+
+                  <td className="px-6 py-4">
+                    <p className="text-sm font-bold text-slate-950">{item.receiverName}</p>
+                    <p className="font-mono text-xs text-slate-500">{item.toAccount}</p>
                   </td>
-                  <td className="px-6 py-5 uppercase">
-                    <span className={cn(
-                      "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black tracking-widest leading-none",
-                      txn.status === 'COMPLETED' ? 'bg-secondary/10 text-secondary' : 
-                      txn.status === 'PENDING' ? 'bg-tertiary-fixed text-on-tertiary-fixed-variant' : 
-                      txn.status === 'FAILED' ? 'bg-error-container text-on-error-container font-black' : 
-                      'bg-surface-container-highest text-on-surface-variant opacity-60'
-                    )}>
-                      <div className={cn("w-1.5 h-1.5 rounded-full", txn.status === 'COMPLETED' ? 'bg-secondary' : txn.status === 'PENDING' ? 'bg-on-tertiary-container animate-pulse' : txn.status === 'FAILED' ? 'bg-error' : 'bg-outline')} />
-                      {txn.status}
+
+                  <td className="px-6 py-4">
+                    <span className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-700">
+                      {item.type}
                     </span>
                   </td>
-                  <td className="px-6 py-5 font-numeric text-[11px] font-bold text-on-surface-variant opacity-60">{txn.time}</td>
-                  <td className="px-6 py-5">
-                    <div className="flex justify-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                      <button className="p-2.5 hover:bg-white text-on-surface-variant hover:text-primary rounded-xl shadow-sm border border-transparent hover:border-outline-variant" title="Xem chi tiết">
-                        <Eye className="w-4.5 h-4.5" />
+
+                  <td className="px-6 py-4 text-right text-sm font-bold text-slate-950">
+                    {formatMoney(item.amount)}
+                  </td>
+
+                  <td className="px-6 py-4 text-right text-sm text-slate-600">
+                    {formatMoney(item.fee)}
+                  </td>
+
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2">
+                      {statusIcon(item.status)}
+                      {statusBadge(item.status)}
+                    </div>
+                  </td>
+
+                  <td className="px-6 py-4 text-sm text-slate-500">{item.createdAt}</td>
+
+                  <td className="px-6 py-4">
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => openDetail(item)}
+                        className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50"
+                        title="Xem chi tiết"
+                      >
+                        <Eye className="h-4 w-4" />
                       </button>
-                      <button className="p-2.5 hover:bg-error-container text-error rounded-xl shadow-sm transition-all" title="Hoàn tác">
-                        <Undo2 className="w-4.5 h-4.5" />
+
+                      <button
+                        onClick={() => openDetail(item)}
+                        className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50"
+                        title="Biên lai"
+                      >
+                        <FileText className="h-4 w-4" />
                       </button>
+
+                      {item.status === 'COMPLETED' && (
+                        <button
+                          onClick={() => openReverse(item)}
+                          className="rounded-lg border border-purple-200 p-2 text-purple-700 hover:bg-purple-50"
+                          title="Hoàn tiền"
+                        >
+                          <RotateCcw className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
               ))}
+
+              {filteredTransactions.length === 0 && (
+                <tr>
+                  <td colSpan={9} className="px-6 py-12 text-center text-sm font-semibold text-slate-500">
+                    Không tìm thấy giao dịch phù hợp.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="bg-primary-container p-8 rounded-[40px] shadow-2xl text-white overflow-hidden relative group hover:scale-[1.01] transition-transform duration-500">
-          <div className="relative z-10">
-            <h3 className="font-display font-bold text-2xl mb-4 flex items-center gap-3">
-              <ShieldAlert className="w-8 h-8 text-secondary-fixed" /> Trung tâm bảo mật
-            </h3>
-            <p className="text-sm font-medium opacity-80 mb-8 leading-relaxed max-w-md">Các giao dịch trên $10,000.00 yêu cầu xác thực đa yếu tố (MFA). Đảm bảo thiết bị Token của bạn đang hoạt động bình thường.</p>
-            <button className="bg-white text-primary-container px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl flex items-center gap-2 hover:bg-secondary-fixed hover:text-on-secondary-fixed-variant transition-all">
-              Thiết lập Token bảo mật <ArrowRight className="w-4 h-4" />
+        <div className="flex flex-col justify-between gap-3 border-t border-slate-200 bg-slate-50/70 px-6 py-4 md:flex-row md:items-center">
+          <p className="text-xs font-semibold text-slate-500">
+            Hiển thị {filteredTransactions.length} / {transactions.length} giao dịch
+          </p>
+
+          <div className="flex items-center gap-2">
+            <button className="rounded-lg border border-slate-200 bg-white p-2 text-slate-400" disabled>
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <span className="rounded-lg bg-[#002147] px-3 py-1.5 text-xs font-bold text-white">1</span>
+            <button className="rounded-lg border border-slate-200 bg-white p-2 text-slate-600 hover:bg-slate-50">
+              <ChevronRight className="h-4 w-4" />
             </button>
           </div>
-          <ShieldAlert className="absolute -right-12 -bottom-12 w-64 h-64 text-white/5 group-hover:scale-110 group-hover:rotate-12 transition-transform duration-700 pointer-events-none" />
-        </div>
-
-        <div className="bg-white border border-outline-variant p-8 rounded-[40px] shadow-sm flex gap-6 hover:shadow-xl transition-all">
-          <div className="w-20 h-20 bg-primary-container/10 rounded-[28px] border border-outline-variant flex items-center justify-center shrink-0 shadow-inner group overflow-hidden">
-            <Contact2 className="w-10 h-10 text-primary-container group-hover:scale-110 transition-transform" />
-          </div>
-          <div>
-            <h3 className="font-display font-bold text-xl text-primary mb-2">Cần hỗ trợ tra soát?</h3>
-            <p className="text-sm font-medium text-on-surface-variant mb-6 leading-relaxed">Đội ngũ kỹ thuật của chúng tôi sẵn sàng hỗ trợ 24/7 cho các vấn đề liên quan đến API hoặc giao dịch bị kẹt.</p>
-            <div className="flex flex-wrap gap-6">
-              <span className="text-xs font-black text-primary flex items-center gap-2 bg-primary/5 px-4 py-2 rounded-full">
-                <span className="material-symbols-outlined text-sm">call</span> 1900 6688
-              </span>
-              <span className="text-xs font-black text-primary flex items-center gap-2 bg-primary/5 px-4 py-2 rounded-full">
-                <span className="material-symbols-outlined text-sm">mail</span> treasury@ebank.com
-              </span>
-            </div>
-          </div>
         </div>
       </div>
+
+      <Modal
+        open={detailOpen}
+        onClose={() => setDetailOpen(false)}
+        title="Chi tiết giao dịch & Biên lai"
+      >
+        {selectedTransaction && (
+          <div className="space-y-6 bg-slate-50 p-6">
+            <div className="rounded-3xl border border-slate-200 bg-white p-6">
+              <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-start">
+                <div>
+                  <div className="mb-3 flex items-center gap-2">
+                    {statusIcon(selectedTransaction.status)}
+                    {statusBadge(selectedTransaction.status)}
+                  </div>
+
+                  <h3 className="font-mono text-2xl font-bold text-[#002147]">
+                    {selectedTransaction.transactionId}
+                  </h3>
+
+                  <p className="mt-2 text-sm text-slate-500">{selectedTransaction.note}</p>
+                </div>
+
+                <div className="flex gap-3">
+                  <button className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">
+                    <Printer className="h-4 w-4" />
+                    In
+                  </button>
+                  <button className="inline-flex items-center gap-2 rounded-xl bg-[#002147] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#001936]">
+                    <Download className="h-4 w-4" />
+                    Tải PDF
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div className="rounded-2xl bg-[#002147] p-5 text-white">
+                  <p className="text-xs font-bold uppercase text-white/60">Số tiền</p>
+                  <p className="mt-2 text-2xl font-bold">
+                    {formatMoney(selectedTransaction.amount)}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-5">
+                  <p className="text-xs font-bold uppercase text-slate-500">Phí</p>
+                  <p className="mt-2 text-xl font-bold">{formatMoney(selectedTransaction.fee)}</p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-5">
+                  <p className="text-xs font-bold uppercase text-slate-500">Tổng trừ</p>
+                  <p className="mt-2 text-xl font-bold">
+                    {formatMoney(selectedTransaction.amount + selectedTransaction.fee)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                  <p className="text-xs font-bold uppercase text-slate-500">Tài khoản nguồn</p>
+                  <p className="mt-2 text-sm font-bold">{selectedTransaction.senderName}</p>
+                  <p className="font-mono text-sm text-[#002147]">{selectedTransaction.fromAccount}</p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                  <p className="text-xs font-bold uppercase text-slate-500">Tài khoản nhận</p>
+                  <p className="mt-2 text-sm font-bold">{selectedTransaction.receiverName}</p>
+                  <p className="font-mono text-sm text-[#002147]">{selectedTransaction.toAccount}</p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                  <p className="text-xs font-bold uppercase text-slate-500">Loại giao dịch</p>
+                  <p className="mt-2 text-sm font-bold">{selectedTransaction.type}</p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                  <p className="text-xs font-bold uppercase text-slate-500">Thời gian</p>
+                  <p className="mt-2 text-sm font-bold">{selectedTransaction.createdAt}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-slate-200 bg-white p-6">
+              <h4 className="mb-4 flex items-center gap-2 text-base font-bold text-slate-950">
+                <History className="h-5 w-5 text-[#002147]" />
+                Nhật ký xử lý nghiệp vụ
+              </h4>
+
+              <div className="space-y-3">
+                {selectedTransaction.logs.map((log, index) => (
+                  <div key={`${log.action}-${index}`} className="rounded-2xl border border-slate-200 p-4">
+                    <p className="text-sm font-bold text-slate-950">{log.action}</p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {log.performedBy} • {log.createdAt}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        open={reverseOpen}
+        onClose={() => setReverseOpen(false)}
+        title="Xác nhận hoàn tiền / đảo giao dịch"
+        maxWidth="max-w-lg"
+      >
+        <div className="space-y-5 p-6">
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <div className="flex gap-3">
+              <ShieldAlert className="mt-0.5 h-5 w-5 text-amber-700" />
+              <div>
+                <p className="font-bold text-amber-900">Thao tác nhạy cảm</p>
+                <p className="mt-1 text-sm text-amber-800">
+                  Chỉ giao dịch COMPLETED mới được hoàn tiền. Sau khi hoàn tiền, trạng thái sẽ chuyển sang REVERSED.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {selectedTransaction && (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="font-mono text-sm font-bold text-[#002147]">
+                {selectedTransaction.transactionId}
+              </p>
+              <p className="mt-2 text-sm font-semibold">
+                {selectedTransaction.senderName} → {selectedTransaction.receiverName}
+              </p>
+              <p className="mt-1 text-xl font-bold">{formatMoney(selectedTransaction.amount)}</p>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={() => setReverseOpen(false)}
+              className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50"
+            >
+              Hủy
+            </button>
+
+            <button
+              onClick={reverseTransaction}
+              className="inline-flex items-center gap-2 rounded-xl bg-purple-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-purple-800"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Xác nhận hoàn tiền
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
