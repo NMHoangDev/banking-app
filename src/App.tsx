@@ -14,6 +14,7 @@ import Beneficiaries from './pages/Beneficiaries';
 import Branches from './pages/Branches';
 import Users from './pages/Users';
 import Settings from './pages/Settings';
+import Reports from './pages/Reports';
 import LoginPage from './pages/Login';
 import RegisterPage from './pages/Register';
 
@@ -36,6 +37,7 @@ export default function App() {
           <Route path="/beneficiaries" element={<Beneficiaries />} />
           <Route path="/branches" element={<Branches />} />
           <Route path="/users" element={<Users />} />
+          <Route path="/reports" element={<Reports />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
