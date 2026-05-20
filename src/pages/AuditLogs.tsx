@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   ChevronRight, 
   Download, 
@@ -12,13 +12,28 @@ import {
   Calendar
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { getAuditLogs } from '../services/auditlogs.service';
 
-const auditLogs = [
-  { user: 'Lê Văn Thành', initial: 'LT', ip: '192.168.1.45', action: 'UPDATE', table: 'ACCOUNTS', time: '25/05/2024 14:32:11', record: '#ACC-99281' },
-  { user: 'Nguyễn Thị Mai', initial: 'NM', ip: '10.0.0.12', action: 'DELETE', table: 'BENEFICIARIES', time: '25/05/2024 11:05:44', record: '#BEN-4410' },
-  { user: 'Trần Hoàng Nam', initial: 'TN', ip: '192.168.1.92', action: 'INSERT', table: 'TRANSACTIONS', time: '25/05/2024 09:12:00', record: '#TRX-882193' },
-  { user: 'Lê Văn Thành', initial: 'LT', ip: '192.168.1.45', action: 'UPDATE', table: 'LOAN_CONTRACTS', time: '24/05/2024 16:45:22', record: '#LN-3301' },
-];
+const AuditLogsPage: React.FC = () => {
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    setLoading(true);
+    getAuditLogs()
+      .then((rows) => {
+        if (!mounted) return;
+        setAuditLogs(rows || []);
+      })
+      .catch((err) => {
+        console.error('Failed to load audit logs', err);
+        setError('Không thể tải nhật ký.');
+      })
+      .finally(() => setLoading(false));
+    return () => { mounted = false; };
+  }, []);
 
 export default function AuditLogs() {
   return (
@@ -86,11 +101,11 @@ export default function AuditLogs() {
                 <td className="px-8 py-5 text-sm">
                   <div className="flex items-center gap-4 text-xs font-bold ring-4 ring-white shadow-sm shrink-0">
                     <div className="w-8 h-8 rounded bg-surface-container-highest flex items-center justify-center text-primary font-bold text-xs">
-                      {log.initial}
+                      {log.initial || (log.performed_by ? log.performed_by.split(' ').map((s:any)=>s[0]).slice(-2).join('') : 'NN')}
                     </div>
                     <div>
-                      <p className="font-numeric text-on-surface font-black tracking-tight">{log.user}</p>
-                      <p className="text-[10px] text-on-surface-variant font-bold opacity-60">IP: {log.ip}</p>
+                        <p className="font-numeric text-on-surface font-black tracking-tight">{log.performed_by || log.user}</p>
+                        <p className="text-[10px] text-on-surface-variant font-bold opacity-60">IP: {log.ip || (log.details && log.details.ip) || '-'}</p>
                     </div>
                   </div>
                 </td>
@@ -104,9 +119,9 @@ export default function AuditLogs() {
                     {log.action}
                   </span>
                 </td>
-                <td className="px-8 py-5 font-numeric font-black text-sm text-on-surface tracking-widest opacity-80">{log.table}</td>
-                <td className="px-8 py-5 font-numeric font-bold text-xs text-on-surface-variant">{log.time}</td>
-                <td className="px-8 py-5 font-numeric font-bold text-[11px] text-on-surface-variant opacity-60 tracking-wider font-mono">{log.record}</td>
+                <td className="px-8 py-5 font-numeric font-black text-sm text-on-surface tracking-widest opacity-80">{log.table || log.object_table || '-'}</td>
+                <td className="px-8 py-5 font-numeric font-bold text-xs text-on-surface-variant">{log.created_at || log.time}</td>
+                <td className="px-8 py-5 font-numeric font-bold text-[11px] text-on-surface-variant opacity-60 tracking-wider font-mono">{log.record || (log.details && log.details.record_id) || '-'}</td>
                 <td className="px-8 py-5 text-right">
                   <button className="text-primary font-black text-xs uppercase tracking-widest hover:underline">Chi tiết</button>
                 </td>

@@ -6,6 +6,15 @@ import authRoute from "./routes/auth.route";
 import customersRoute from "./routes/customers.route";
 import accountsRoute from "./routes/accounts.route";
 import transactionsRoute from "./routes/transactions.route";
+import usersRoute from "./routes/users.route";
+import billsRoute from "./routes/bills.route";
+import cardsRoute from "./routes/cards.route";
+import loansRoute from "./routes/loans.route";
+import branchesRoute from "./routes/branches.route";
+import beneficiariesRoute from "./routes/beneficiaries.route";
+import reportsRoute from "./routes/reports.route";
+import settingsRoute from "./routes/settings.route";
+import auditLogsRoute from "./routes/auditlogs.route";
 
 dotenv.config();
 
@@ -24,7 +33,7 @@ const allowedOrigins = new Set(
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean)
-    .concat(defaultAllowedOrigins)
+    .concat(defaultAllowedOrigins),
 );
 
 app.use(
@@ -37,7 +46,7 @@ app.use(
       return callback(new Error(`CORS blocked for origin: ${origin}`));
     },
     credentials: true,
-  })
+  }),
 );
 
 app.use(express.json());
@@ -50,6 +59,15 @@ app.use("/api/auth", authRoute);
 app.use("/api/customers", customersRoute);
 app.use("/api/accounts", accountsRoute);
 app.use("/api/transactions", transactionsRoute);
+app.use("/api/users", usersRoute);
+app.use("/api/bills", billsRoute);
+app.use("/api/cards", cardsRoute);
+app.use("/api/loans", loansRoute);
+app.use("/api/branches", branchesRoute);
+app.use("/api/beneficiaries", beneficiariesRoute);
+app.use("/api/reports", reportsRoute);
+app.use("/api/settings", settingsRoute);
+app.use("/api/audit-logs", auditLogsRoute);
 
 app.listen(port, async () => {
   console.log(`Server is running at http://localhost:${port}`);

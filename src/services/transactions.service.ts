@@ -22,6 +22,20 @@ export function getTransactions(): Promise<Transaction[]> {
   return apiGet<Transaction[]>("/transactions");
 }
 
-export function transferMoney(data: TransferPayload): Promise<{ message: string; transaction: Transaction }> {
-  return apiPost<{ message: string; transaction: Transaction }>("/transactions/transfer", data);
+export function transferMoney(
+  data: TransferPayload,
+): Promise<{ message: string; transaction: Transaction }> {
+  return apiPost<{ message: string; transaction: Transaction }>(
+    "/transactions/transfer",
+    data,
+  );
+}
+
+export function reverseTransaction(
+  id: number,
+): Promise<{ message: string; transaction: Transaction }> {
+  return apiPost<{ message: string; transaction: Transaction }>(
+    `/transactions/${id}/reverse`,
+    {},
+  );
 }
