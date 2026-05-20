@@ -6,6 +6,7 @@ import authRoute from "./routes/auth.route";
 import customersRoute from "./routes/customers.route";
 import accountsRoute from "./routes/accounts.route";
 import transactionsRoute from "./routes/transactions.route";
+import reportsRoute from "./routes/reports.route";
 
 dotenv.config();
 
@@ -50,6 +51,7 @@ app.use("/api/auth", authRoute);
 app.use("/api/customers", customersRoute);
 app.use("/api/accounts", accountsRoute);
 app.use("/api/transactions", transactionsRoute);
+app.use("/api/reports", reportsRoute);
 
 app.listen(port, async () => {
   console.log(`Server is running at http://localhost:${port}`);
