@@ -12,18 +12,28 @@ dotenv.config();
 const app = express();
 const port = Number(process.env.PORT || 8000);
 
+const defaultAllowedOrigins = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+];
+
+const allowedOrigins = new Set(
+  (process.env.FRONTEND_ORIGINS ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .concat(defaultAllowedOrigins)
+);
+
 app.use(
   cors({
     origin: (origin, callback) => {
       // Allow same-origin/non-browser requests (no Origin header)
       if (!origin) return callback(null, true);
 
-      const allowed = new Set([
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-      ]);
-
-      if (allowed.has(origin)) return callback(null, true);
+      if (allowedOrigins.has(origin)) return callback(null, true);
       return callback(new Error(`CORS blocked for origin: ${origin}`));
     },
     credentials: true,
