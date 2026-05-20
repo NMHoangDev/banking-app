@@ -1,13 +1,18 @@
-import React, { useMemo, useState } from 'react';
+﻿import React, { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { login, saveAuth } from '../services/auth.service';
 
 export default function LoginPage() {
-  const [username, setUsername] = useState('admin@bankdb.vn');
-  const [password, setPassword] = useState('••••••••');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(false);
 
-  const [showError] = useState(true);
-  const [isLoading] = useState(true);
+  const [showError, setShowError] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [message, setMessage] = useState('');
+
+  const navigate = useNavigate();
 
   const passwordInputType = useMemo(
     () => (showPassword ? 'text' : 'password'),
@@ -18,6 +23,34 @@ export default function LoginPage() {
     ? 'border-error focus:ring-error focus:border-error'
     : 'border-outline-variant focus:ring-primary focus:border-primary';
   const iconColorClass = showError ? 'text-error' : 'text-outline';
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    setShowError(false);
+    setMessage('');
+
+    if (!username.trim() || !password) {
+      setShowError(true);
+      setMessage('Vui lòng nhập tên đăng nhập và mật khẩu.');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const data = await login({ username: username.trim(), password });
+      saveAuth(data);
+
+      // giữ route hiện tại: Dashboard nằm ở /dashboard
+      navigate('/dashboard');
+    } catch (err) {
+      setShowError(true);
+      const msg = err instanceof Error ? err.message : '';
+      setMessage(msg || 'Tên đăng nhập hoặc mật khẩu không đúng');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="bg-background text-on-surface min-h-screen flex overflow-hidden">
@@ -78,13 +111,13 @@ export default function LoginPage() {
               <div>
                 <h3 className="font-semibold text-sm text-on-error-container">Lỗi xác thực</h3>
                 <p className="text-body-sm text-on-error-container mt-1">
-                  Tên đăng nhập hoặc mật khẩu không đúng. Vui lòng kiểm tra lại.
+                  {message || 'Tên đăng nhập hoặc mật khẩu không đúng. Vui lòng kiểm tra lại.'}
                 </p>
               </div>
             </div>
           )}
 
-          <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+          <form className="space-y-4" onSubmit={handleSubmit}>
             <div>
               <label className="block label-uppercase text-on-surface mb-1" htmlFor="username">
                 Tên đăng nhập / Email
@@ -155,12 +188,18 @@ export default function LoginPage() {
                   onChange={(e) => setRemember(e.target.checked)}
                   className="h-4 w-4 text-primary border-outline-variant rounded focus:ring-primary focus:ring-2 bg-surface cursor-pointer"
                 />
-                <label htmlFor="remember-me" className="ml-2 text-body-sm text-on-surface cursor-pointer">
+                <label
+                  htmlFor="remember-me"
+                  className="ml-2 text-body-sm text-on-surface cursor-pointer"
+                >
                   Ghi nhớ đăng nhập
                 </label>
               </div>
 
-              <a className="text-sm font-medium text-primary hover:text-primary-container transition-colors" href="#">
+              <a
+                className="text-sm font-medium text-primary hover:text-primary-container transition-colors"
+                href="#"
+              >
                 Quên mật khẩu?
               </a>
             </div>
@@ -187,7 +226,10 @@ export default function LoginPage() {
           <div className="mt-6 text-center">
             <p className="text-body-sm text-on-surface-variant">
               Chưa có tài khoản?
-              <a className="font-medium text-primary hover:text-primary-container transition-colors ml-1" href="#">
+              <a
+                className="font-medium text-primary hover:text-primary-container transition-colors ml-1"
+                href="/register"
+              >
                 Đăng ký ngay
               </a>
             </p>
@@ -195,7 +237,9 @@ export default function LoginPage() {
 
           <div className="mt-10 pt-6 border-t border-outline-variant flex items-center justify-center gap-1">
             <span className="material-symbols-outlined text-[16px] text-secondary">lock</span>
-            <span className="text-body-sm text-secondary">Kết nối được bảo vệ bằng mã hóa SSL 256-bit</span>
+            <span className="text-body-sm text-secondary">
+              Kết nối được bảo vệ bằng mã hóa SSL 256-bit
+            </span>
           </div>
         </div>
       </div>

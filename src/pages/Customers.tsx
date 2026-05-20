@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Search,
   Filter,
@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import Modal from '../components/ui/Modal';
+import { Customer as ApiCustomer, getCustomers } from '../services/customers.service';
 
 type CustomerStatus = 'ACTIVE' | 'LOCKED' | 'PENDING';
 type Gender = 'Nam' | 'Nữ' | 'Khác';
@@ -371,6 +372,8 @@ function EmptyState({ text }: { text: string }) {
 
 export default function Customers() {
   const [customers, setCustomers] = useState<Customer[]>(initialCustomers);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [genderFilter, setGenderFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
@@ -392,6 +395,48 @@ export default function Customers() {
     customerType: 'Cá nhân' as Customer['customerType'],
     status: 'ACTIVE' as CustomerStatus,
   });
+
+  useEffect(() => {
+    const loadCustomers = async () => {
+      setLoading(true);
+      setError('');
+
+      try {
+        const apiCustomers = await getCustomers();
+        const mappedCustomers: Customer[] = apiCustomers.map((item: ApiCustomer) => ({
+          customerId: `CUS-${String(item.customer_id).padStart(4, '0')}`,
+          fullName: item.full_name ?? '',
+          dateOfBirth: item.date_of_birth ?? '',
+          gender: item.gender === 'Nam' || item.gender === 'Nữ' || item.gender === 'Khác' ? item.gender : 'Khác',
+          phone: item.phone ?? '',
+          email: item.email ?? '',
+          address: item.address ?? '',
+          createdAt: item.created_at ? String(item.created_at).slice(0, 10) : '',
+          status: 'ACTIVE',
+          customerType: 'Cá nhân',
+          identity: {
+            identityType: 'Chưa cập nhật',
+            idNumber: 'Chưa cập nhật',
+            issueDate: 'Chưa cập nhật',
+            issuePlace: 'Chưa cập nhật',
+          },
+          accounts: [],
+          cards: [],
+          loans: [],
+          bills: [],
+          beneficiaries: [],
+          transactions: [],
+        }));
+        setCustomers(mappedCustomers);
+      } catch (_err) {
+        setError('Không thể tải danh sách khách hàng từ API');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void loadCustomers();
+  }, []);
 
   const filteredCustomers = useMemo(() => {
     return customers.filter((customer) => {
@@ -562,6 +607,16 @@ export default function Customers() {
 
   return (
     <div className="min-h-screen space-y-6 bg-slate-50 p-4 text-slate-900 md:p-6">
+      {loading && (
+        <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm font-semibold text-blue-800">
+          Đang tải danh sách khách hàng...
+        </div>
+      )}
+      {error && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-800">
+          {error}
+        </div>
+      )}
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-center">
           <div>

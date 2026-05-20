@@ -1,11 +1,18 @@
-import React, { useMemo, useState } from 'react';
+﻿import React, { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { register, saveAuth } from '../services/auth.service';
 
 type Role = 'customer' | 'employee' | 'admin';
 
+type Gender = 'MALE' | 'FEMALE' | 'OTHER';
+
 export default function RegisterPage() {
   const [fullName, setFullName] = useState<string>('');
+  const [dateOfBirth, setDateOfBirth] = useState<string>('');
+  const [gender, setGender] = useState<Gender>('MALE');
   const [phone, setPhone] = useState<string>('');
   const [email, setEmail] = useState<string>('');
+  const [address, setAddress] = useState<string>('');
   const [username, setUsername] = useState<string>('');
 
   const [password, setPassword] = useState<string>('');
@@ -17,27 +24,69 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(false);
 
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+
+  const navigate = useNavigate();
+
   const passwordType = useMemo(() => (showPassword ? 'text' : 'password'), [showPassword]);
   const confirmPasswordType = useMemo(
     () => (showConfirmPassword ? 'text' : 'password'),
     [showConfirmPassword],
   );
 
-  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    // TODO: gọi API đăng ký ở đây
-    // eslint-disable-next-line no-console
-    console.log({
-      fullName,
-      phone,
-      email,
-      username,
-      password,
-      confirmPassword,
-      role,
-      agree,
-    });
+    setError('');
+    setMessage('');
+
+    if (!username.trim() || !password || !fullName.trim() || !dateOfBirth) {
+      setError('Vui lòng nhập đầy đủ thông tin bắt buộc.');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Mật khẩu phải có ít nhất 6 ký tự.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Mật khẩu xác nhận không khớp.');
+      return;
+    }
+
+    if (!agree) {
+      setError('Bạn cần đồng ý điều khoản sử dụng.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const data = await register({
+        username: username.trim(),
+        password,
+        full_name: fullName.trim(),
+        date_of_birth: dateOfBirth,
+        gender,
+        phone: phone.trim() || undefined,
+        email: email.trim() || undefined,
+        address: address.trim() || undefined,
+      });
+
+      saveAuth(data);
+      setMessage('Đăng ký thành công');
+
+      // giữ route hiện tại: Dashboard nằm ở /dashboard
+      navigate('/dashboard');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '';
+      setError(msg || 'Đăng ký thất bại. Vui lòng kiểm tra lại thông tin.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -62,8 +111,8 @@ export default function RegisterPage() {
               Nền tảng Quản lý Tài chính Doanh nghiệp
             </h2>
             <p className="text-[16px] leading-[24px] text-white opacity-80">
-              Trải nghiệm hệ thống ngân hàng bảo mật, tốc độ cao với các công cụ phân tích dữ
-              liệu và quản lý dòng tiền chuyên sâu dành cho tổ chức và cá nhân.
+              Trải nghiệm hệ thống ngân hàng bảo mật, tốc độ cao với các công cụ phân tích dữ liệu và
+              quản lý dòng tiền chuyên sâu dành cho tổ chức và cá nhân.
             </p>
           </div>
 
@@ -90,6 +139,26 @@ export default function RegisterPage() {
             </p>
           </div>
 
+          {error && (
+            <div className="bg-error-container border-l-4 border-error p-4 rounded-lg mb-6 flex items-start gap-2">
+              <span className="material-symbols-outlined text-error mt-0.5">error</span>
+              <div>
+                <h3 className="font-semibold text-sm text-on-error-container">Đăng ký thất bại</h3>
+                <p className="text-body-sm text-on-error-container mt-1">{error}</p>
+              </div>
+            </div>
+          )}
+
+          {message && (
+            <div className="bg-tertiary-container border-l-4 border-tertiary p-4 rounded-lg mb-6 flex items-start gap-2">
+              <span className="material-symbols-outlined text-tertiary mt-0.5">check_circle</span>
+              <div>
+                <h3 className="font-semibold text-sm text-on-tertiary-container">Thành công</h3>
+                <p className="text-body-sm text-on-tertiary-container mt-1">{message}</p>
+              </div>
+            </div>
+          )}
+
           <form className="space-y-4" onSubmit={onSubmit}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -103,57 +172,104 @@ export default function RegisterPage() {
                   type="text"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  className="w-full h-10 px-3 border border-outline-variant rounded bg-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors text-body-md placeholder:text-outline"
+                  className="w-full h-10 bg-surface border border-outline-variant rounded px-3 outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="Nguyễn Văn A"
                 />
               </div>
 
               <div>
+                <label className="block text-sm font-medium text-on-surface mb-1" htmlFor="dateOfBirth">
+                  Ngày sinh <span className="text-error">*</span>
+                </label>
+                <input
+                  id="dateOfBirth"
+                  name="dateOfBirth"
+                  required
+                  type="date"
+                  value={dateOfBirth}
+                  onChange={(e) => setDateOfBirth(e.target.value)}
+                  className="w-full h-10 bg-surface border border-outline-variant rounded px-3 outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-on-surface mb-1" htmlFor="gender">
+                  Giới tính
+                </label>
+                <select
+                  id="gender"
+                  name="gender"
+                  value={gender}
+                  onChange={(e) => setGender(e.target.value as Gender)}
+                  className="w-full h-10 bg-surface border border-outline-variant rounded px-3 outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="MALE">MALE</option>
+                  <option value="FEMALE">FEMALE</option>
+                  <option value="OTHER">OTHER</option>
+                </select>
+              </div>
+
+              <div>
                 <label className="block text-sm font-medium text-on-surface mb-1" htmlFor="phone">
-                  Số điện thoại <span className="text-error">*</span>
+                  Số điện thoại
                 </label>
                 <input
                   id="phone"
                   name="phone"
-                  required
                   type="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="w-full h-10 px-3 border border-outline-variant rounded bg-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors text-body-md placeholder:text-outline"
+                  className="w-full h-10 bg-surface border border-outline-variant rounded px-3 outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="0901234567"
                 />
               </div>
-            </div>
 
-            <div>
-              <label className="block text-sm font-medium text-on-surface mb-1" htmlFor="email">
-                Email <span className="text-error">*</span>
-              </label>
-              <input
-                id="email"
-                name="email"
-                required
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full h-10 px-3 border border-outline-variant rounded bg-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors text-body-md placeholder:text-outline"
-              />
-            </div>
+              <div>
+                <label className="block text-sm font-medium text-on-surface mb-1" htmlFor="email">
+                  Email
+                </label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full h-10 bg-surface border border-outline-variant rounded px-3 outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="vana@example.com"
+                />
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium text-on-surface mb-1" htmlFor="username">
-                Tên đăng nhập <span className="text-error">*</span>
-              </label>
-              <input
-                id="username"
-                name="username"
-                required
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full h-10 px-3 border border-outline-variant rounded bg-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors text-body-md placeholder:text-outline"
-              />
-            </div>
+              <div>
+                <label className="block text-sm font-medium text-on-surface mb-1" htmlFor="username">
+                  Tên đăng nhập <span className="text-error">*</span>
+                </label>
+                <input
+                  id="username"
+                  name="username"
+                  required
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="w-full h-10 bg-surface border border-outline-variant rounded px-3 outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="nguyenvana"
+                />
+              </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-on-surface mb-1" htmlFor="address">
+                  Địa chỉ
+                </label>
+                <input
+                  id="address"
+                  name="address"
+                  type="text"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  className="w-full h-10 bg-surface border border-outline-variant rounded px-3 outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="Đà Nẵng"
+                />
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-on-surface mb-1" htmlFor="password">
                   Mật khẩu <span className="text-error">*</span>
@@ -166,11 +282,12 @@ export default function RegisterPage() {
                     type={passwordType}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full h-10 px-3 pr-10 border border-outline-variant rounded bg-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors text-body-md placeholder:text-outline"
+                    className="w-full h-10 bg-surface border border-outline-variant rounded px-3 pr-10 outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="Nhập mật khẩu"
                   />
                   <button
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-primary"
                     type="button"
+                    className="absolute inset-y-0 right-0 px-3 flex items-center text-on-surface-variant hover:text-on-surface"
                     onClick={() => setShowPassword((v) => !v)}
                     aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
                   >
@@ -193,11 +310,12 @@ export default function RegisterPage() {
                     type={confirmPasswordType}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full h-10 px-3 pr-10 border border-outline-variant rounded bg-surface focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors text-body-md placeholder:text-outline"
+                    className="w-full h-10 bg-surface border border-outline-variant rounded px-3 pr-10 outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="Nhập lại mật khẩu"
                   />
                   <button
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-primary"
                     type="button"
+                    className="absolute inset-y-0 right-0 px-3 flex items-center text-on-surface-variant hover:text-on-surface"
                     onClick={() => setShowConfirmPassword((v) => !v)}
                     aria-label={showConfirmPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
                   >
@@ -213,7 +331,7 @@ export default function RegisterPage() {
               <div className="flex items-start gap-1.5">
                 <span className="material-symbols-outlined text-[16px] text-primary mt-0.5">info</span>
                 <p className="text-body-sm text-on-surface-variant">
-                  Mật khẩu cần tối thiểu 8 ký tự, bao gồm chữ hoa, chữ thường và số.
+                  Mật khẩu cần tối thiểu 6 ký tự. Nên dùng kết hợp chữ hoa, chữ thường và số.
                 </p>
               </div>
             </div>
@@ -283,10 +401,11 @@ export default function RegisterPage() {
 
             <div className="pt-4">
               <button
-                className="w-full h-10 bg-primary hover:bg-on-primary-fixed-variant text-white font-medium rounded transition-colors flex items-center justify-center gap-1.5"
+                className="w-full h-10 bg-primary hover:bg-on-primary-fixed-variant text-white font-medium rounded transition-colors flex items-center justify-center gap-1.5 disabled:opacity-70"
                 type="submit"
+                disabled={loading}
               >
-                Đăng ký
+                {loading ? 'Đang đăng ký...' : 'Đăng ký'}
                 <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
               </button>
             </div>
