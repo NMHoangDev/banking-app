@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Search,
   Plus,
@@ -28,19 +28,21 @@ import {
   Settings,
   Copy,
   RefreshCw,
-} from "lucide-react";
-import { cn } from "../lib/utils";
-import Modal from "../components/ui/Modal";
-import { getAccounts } from "../services/accounts.service";
+} from 'lucide-react';
+import { cn } from '../lib/utils';
+import Modal from '../components/ui/Modal';
+import { getCustomers, type Customer } from '../services/customers.service';
 
-type AccountStatus = "ACTIVE" | "INACTIVE" | "LOCKED" | "CLOSED";
-type AccountType = "Payment" | "Saving" | "Business" | "Loan";
-type TransactionStatus =
-  | "PENDING"
-  | "COMPLETED"
-  | "FAILED"
-  | "REVERSED"
-  | "CANCELLED";
+type AccountStatus = 'ACTIVE' | 'INACTIVE' | 'LOCKED' | 'CLOSED';
+type AccountType = 'Payment' | 'Saving' | 'Business' | 'Loan';
+type TransactionStatus = 'PENDING' | 'COMPLETED' | 'FAILED' | 'REVERSED' | 'CANCELLED';
+
+type CustomerOption = {
+  customerId: string;
+  fullName: string;
+  phone: string;
+  customer_id?: number;
+};
 
 type Account = {
   accountId: string;
@@ -97,13 +99,15 @@ type LinkedCard = {
   status: string;
 };
 
-const customers = [
-  { customerId: "CUS-0001", fullName: "Nguyễn Văn Hoàng", phone: "0912345678" },
-  { customerId: "CUS-0002", fullName: "Trần Thị Lan", phone: "0988776554" },
-  { customerId: "CUS-0003", fullName: "Phạm Anh Tuấn", phone: "0903445566" },
-  { customerId: "CUS-0004", fullName: "Lê Minh", phone: "0332111222" },
+const hardcodedCustomers: CustomerOption[] = [];
+/*
+  { customerId: 'CUS-0001', fullName: 'Nguyễn Văn Hoàng', phone: '0912345678' },
+  { customerId: 'CUS-0002', fullName: 'Trần Thị Lan', phone: '0988776554' },
+  { customerId: 'CUS-0003', fullName: 'Phạm Anh Tuấn', phone: '0903445566' },
+  { customerId: 'CUS-0004', fullName: 'Lê Minh', phone: '0332111222' },
 ];
 
+*/
 const initialAccounts: Account[] = [
   {
     accountId: "ACC-0001",
@@ -393,15 +397,47 @@ function EmptyState({ text }: { text: string }) {
 }
 
 export default function Accounts() {
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [typeFilter, setTypeFilter] = useState<"ALL" | AccountType>("ALL");
-  const [statusFilter, setStatusFilter] = useState<"ALL" | AccountStatus>(
-    "ALL",
-  );
-  const [sortBy, setSortBy] = useState<"createdAt" | "balance">("createdAt");
+  const [accounts, setAccounts] = useState<Account[]>(initialAccounts);
+  const [customers, setCustomers] = useState<CustomerOption[]>(hardcodedCustomers);
+  const [loadingCustomers, setLoadingCustomers] = useState(false);
+  const [customersError, setCustomersError] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'ALL' | AccountType>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | AccountStatus>('ALL');
+  const [sortBy, setSortBy] = useState<'createdAt' | 'balance'>('createdAt');
+
+  useEffect(() => {
+    const loadCustomers = async () => {
+      setLoadingCustomers(true);
+      setCustomersError('');
+
+      try {
+        const rows = await getCustomers();
+        const mapped: CustomerOption[] = rows.map((row: Customer) => {
+          const id = Number(row.customer_id);
+          const formattedId = Number.isFinite(id)
+            ? `CUS-${String(id).padStart(4, '0')}`
+            : String(row.customer_id);
+
+          return {
+            customerId: formattedId,
+            customer_id: id,
+            fullName: row.full_name ?? formattedId,
+            phone: row.phone ?? '-',
+          };
+        });
+
+        setCustomers(mapped);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : '';
+        setCustomersError(msg || 'Không thể tải danh sách khách hàng từ hệ thống.');
+      } finally {
+        setLoadingCustomers(false);
+      }
+    };
+
+    void loadCustomers();
+  }, []);
 
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [isOpenAccountModalOpen, setIsOpenAccountModalOpen] = useState(false);
@@ -765,6 +801,7 @@ export default function Accounts() {
                   setTypeFilter(event.target.value as "ALL" | AccountType)
                 }
                 className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-[#002147]"
+                disabled={loadingCustomers}
               >
                 <option value="ALL">Tất cả loại tài khoản</option>
                 <option value="Payment">Payment</option>
@@ -1000,7 +1037,17 @@ export default function Accounts() {
                 className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:border-[#002147]"
               >
                 <option value="">-- Chọn khách hàng --</option>
-                {customers.map((customer) => (
+                {loadingCustomers && (
+                  <option value="" disabled>
+                    Loading customers...
+                  </option>
+                )}
+                {!loadingCustomers && customersError && (
+                  <option value="" disabled>
+                    {customersError}
+                  </option>
+                )}
+                {!loadingCustomers && !customersError && customers.map((customer) => (
                   <option key={customer.customerId} value={customer.customerId}>
                     {customer.customerId} - {customer.fullName} -{" "}
                     {customer.phone}

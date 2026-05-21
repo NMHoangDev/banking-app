@@ -14,7 +14,7 @@ import Beneficiaries from './pages/Beneficiaries';
 import Branches from './pages/Branches';
 import Users from './pages/Users';
 import Settings from './pages/Settings';
-import Reports from './pages/Reports';
+import Reports from './pages/ReportsDynamic';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/Login';
 import RegisterPage from './pages/Register';
