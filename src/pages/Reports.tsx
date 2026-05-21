@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import Modal from "../components/ui/Modal";
-import { getReports, generateReport } from "../services/reports.service";
+import { getReports, generateReport, getReportSummary } from "../services/reports.service";
 
 const initialReports = [
   {
@@ -79,6 +79,8 @@ export default function Reports() {
   const [selectedChartSegment, setSelectedChartSegment] = useState<
     string | null
   >(null);
+  
+  const [summaryData, setSummaryData] = useState<any>(null);
 
   const filteredReports = useMemo(() => {
     if (reportTypeFilter === "ALL") return reports;
@@ -175,6 +177,14 @@ export default function Reports() {
       } finally {
         setLoadingReports(false);
       }
+      
+      try {
+        const summary = await getReportSummary();
+        if (!mounted) return;
+        setSummaryData(summary);
+      } catch (err) {
+        console.error("Failed to load summary", err);
+      }
     };
     load();
     return () => {
@@ -210,28 +220,28 @@ export default function Reports() {
         {[
           {
             label: "TỔNG TÀI SẢN HỆ THỐNG",
-            value: "45,280,000,000,000 VND",
+            value: summaryData?.total_assets ? `${new Intl.NumberFormat('vi-VN').format(summaryData.total_assets)} VND` : "45,280,000,000,000 VND",
             icon: <TrendingUp className="w-5 h-5" />,
             color: "primary",
             trend: "+12.4% so với năm ngoái",
           },
           {
             label: "DOANH THU THUẦN Q3",
-            value: "184,500,000,000 VND",
+            value: summaryData?.net_revenue ? `${new Intl.NumberFormat('vi-VN').format(summaryData.net_revenue)} VND` : "184,500,000,000 VND",
             icon: <DollarSign className="w-5 h-5" />,
             color: "secondary",
             trend: "+8.2% so với Q2",
           },
           {
             label: "CHI PHÍ VẬN HÀNH",
-            value: "42,100,000,000 VND",
+            value: summaryData?.operating_costs ? `${new Intl.NumberFormat('vi-VN').format(summaryData.operating_costs)} VND` : "42,100,000,000 VND",
             icon: <TrendingDown className="w-5 h-5" />,
             color: "error",
             trend: "-2.5% tối ưu chi phí",
           },
           {
             label: "HẠN MỨC TÍN DỤNG CẤP",
-            value: "18,500,000,000,000 VND",
+            value: summaryData?.credit_limit ? `${new Intl.NumberFormat('vi-VN').format(summaryData.credit_limit)} VND` : "18,500,000,000,000 VND",
             icon: <BarChart3 className="w-5 h-5" />,
             color: "tertiary",
             trend: "Tỷ lệ nợ xấu 0.45%",

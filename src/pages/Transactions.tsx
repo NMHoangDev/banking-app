@@ -24,6 +24,7 @@ import { cn } from "../lib/utils";
 import {
   getTransactions,
   reverseTransaction as apiReverse,
+  transferMoney,
 } from "../services/transactions.service";
 
 type TransactionStatus =
@@ -286,6 +287,13 @@ export default function Transactions() {
     useState<Transaction | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [reverseOpen, setReverseOpen] = useState(false);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  
+  // Transfer form state
+  const [transferFromAccountId, setTransferFromAccountId] = useState("");
+  const [transferToAccountId, setTransferToAccountId] = useState("");
+  const [transferAmount, setTransferAmount] = useState("");
+  const [transferLoading, setTransferLoading] = useState(false);
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter((item) => {
@@ -398,51 +406,82 @@ export default function Transactions() {
     }
   };
 
+  const loadTransactions = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const apiTxs = await getTransactions();
+      const mapped = apiTxs.map(
+        (t) =>
+          ({
+            transactionId: `TXN-${String((t as any).transaction_id)}`,
+            fromAccount:
+              (t as any).from_account_number ??
+              String((t as any).from_account_id ?? ""),
+            toAccount:
+              (t as any).to_account_number ??
+              String((t as any).to_account_id ?? ""),
+            senderName: (t as any).from_account_number ?? "",
+            receiverName: (t as any).to_account_number ?? "",
+            type:
+              (t as any).transaction_type ??
+              ((t as any).transaction_type as TransactionType) ??
+              "INTERNAL_TRANSFER",
+            amount: Number((t as any).amount) || 0,
+            fee: 0,
+            status: (t as any).status ?? "PENDING",
+            createdAt: (t as any).created_at
+              ? String((t as any).created_at)
+                  .slice(0, 16)
+                  .replace("T", " ")
+              : "",
+            performedBy: "",
+            note: "",
+            logs: [],
+          }) as Transaction,
+      );
+
+      setTransactions(mapped);
+    } catch (err) {
+      setError("Không thể tải giao dịch từ API");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTransfer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const fromId = Number(transferFromAccountId);
+    const toId = Number(transferToAccountId);
+    const amount = Number(transferAmount);
+
+    if (!fromId || !toId || !amount) {
+      alert("Vui lòng điền đầy đủ thông tin (ID tài khoản gửi, nhận và số tiền).");
+      return;
+    }
+
+    try {
+      setTransferLoading(true);
+      await transferMoney({
+        from_account_id: fromId,
+        to_account_id: toId,
+        amount: amount,
+      });
+      alert("Chuyển tiền thành công!");
+      setIsTransferModalOpen(false);
+      setTransferFromAccountId("");
+      setTransferToAccountId("");
+      setTransferAmount("");
+      await loadTransactions();
+    } catch (err) {
+      alert("Chuyển tiền thất bại: " + String(err instanceof Error ? err.message : err));
+    } finally {
+      setTransferLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const loadTransactions = async () => {
-      setLoading(true);
-      setError("");
-
-      try {
-        const apiTxs = await getTransactions();
-        const mapped = apiTxs.map(
-          (t) =>
-            ({
-              transactionId: `TXN-${String((t as any).transaction_id)}`,
-              fromAccount:
-                (t as any).from_account_number ??
-                String((t as any).from_account_id ?? ""),
-              toAccount:
-                (t as any).to_account_number ??
-                String((t as any).to_account_id ?? ""),
-              senderName: (t as any).from_account_number ?? "",
-              receiverName: (t as any).to_account_number ?? "",
-              type:
-                (t as any).transaction_type ??
-                ((t as any).transaction_type as TransactionType) ??
-                "INTERNAL_TRANSFER",
-              amount: Number((t as any).amount) || 0,
-              fee: 0,
-              status: (t as any).status ?? "PENDING",
-              createdAt: (t as any).created_at
-                ? String((t as any).created_at)
-                    .slice(0, 16)
-                    .replace("T", " ")
-                : "",
-              performedBy: "",
-              note: "",
-              logs: [],
-            }) as Transaction,
-        );
-
-        setTransactions(mapped);
-      } catch (err) {
-        setError("Không thể tải giao dịch từ API");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     void loadTransactions();
   }, []);
 
@@ -472,6 +511,13 @@ export default function Transactions() {
             <button className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
               <RefreshCw className="h-4 w-4" />
               Làm mới
+            </button>
+            <button 
+              onClick={() => setIsTransferModalOpen(true)}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700"
+            >
+              <ArrowRightLeft className="h-4 w-4" />
+              Chuyển tiền mới
             </button>
             <button className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#002147] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#001936]">
               <Download className="h-4 w-4" />
@@ -946,6 +992,72 @@ export default function Transactions() {
             </button>
           </div>
         </div>
+      </Modal>
+
+      <Modal
+        open={isTransferModalOpen}
+        onClose={() => setIsTransferModalOpen(false)}
+        title="Chuyển tiền mới"
+        maxWidth="max-w-md"
+      >
+        <form onSubmit={handleTransfer} className="space-y-4 p-6">
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold uppercase text-slate-500">
+              ID Tài khoản gửi
+            </label>
+            <input
+              type="number"
+              value={transferFromAccountId}
+              onChange={(e) => setTransferFromAccountId(e.target.value)}
+              placeholder="VD: 1"
+              required
+              className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-[#002147] focus:bg-white"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold uppercase text-slate-500">
+              ID Tài khoản nhận
+            </label>
+            <input
+              type="number"
+              value={transferToAccountId}
+              onChange={(e) => setTransferToAccountId(e.target.value)}
+              placeholder="VD: 2"
+              required
+              className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-[#002147] focus:bg-white"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold uppercase text-slate-500">
+              Số tiền (VND)
+            </label>
+            <input
+              type="number"
+              value={transferAmount}
+              onChange={(e) => setTransferAmount(e.target.value)}
+              placeholder="VD: 100000"
+              required
+              className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-[#002147] focus:bg-white"
+            />
+          </div>
+          
+          <div className="pt-4 flex justify-end gap-3 border-t border-slate-200 mt-6">
+            <button
+              type="button"
+              onClick={() => setIsTransferModalOpen(false)}
+              className="px-6 py-2.5 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-100 transition-all"
+            >
+              Hủy
+            </button>
+            <button
+              type="submit"
+              disabled={transferLoading}
+              className="px-6 py-2.5 rounded-xl text-sm font-bold bg-[#002147] text-white shadow-sm hover:bg-[#001936] transition-all disabled:opacity-50"
+            >
+              {transferLoading ? "Đang xử lý..." : "Chuyển tiền"}
+            </button>
+          </div>
+        </form>
       </Modal>
     </div>
   );

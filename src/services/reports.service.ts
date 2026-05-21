@@ -16,6 +16,10 @@ export function getReports(params?: ReportParams): Promise<any[]> {
   return apiGet<any[]>(`/reports${qs}`);
 }
 
+export function getReportSummary(): Promise<any> {
+  return apiGet<any>("/reports/summary");
+}
+
 export function generateReport(
   params?: ReportParams,
 ): Promise<{ url: string }> {
