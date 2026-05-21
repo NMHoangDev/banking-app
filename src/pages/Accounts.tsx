@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Search,
   Plus,
@@ -31,10 +31,18 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import Modal from '../components/ui/Modal';
+import { getCustomers, type Customer } from '../services/customers.service';
 
 type AccountStatus = 'ACTIVE' | 'INACTIVE' | 'LOCKED' | 'CLOSED';
 type AccountType = 'Payment' | 'Saving' | 'Business' | 'Loan';
 type TransactionStatus = 'PENDING' | 'COMPLETED' | 'FAILED' | 'REVERSED' | 'CANCELLED';
+
+type CustomerOption = {
+  customerId: string;
+  fullName: string;
+  phone: string;
+  customer_id?: number;
+};
 
 type Account = {
   accountId: string;
@@ -44,7 +52,7 @@ type Account = {
   customerPhone: string;
   accountType: AccountType;
   balance: number;
-  currency: 'VND' | 'USD' | 'EUR';
+  currency: "VND" | "USD" | "EUR";
   status: AccountStatus;
   createdAt: string;
   perTransactionLimit: number;
@@ -91,221 +99,223 @@ type LinkedCard = {
   status: string;
 };
 
-const customers = [
+const hardcodedCustomers: CustomerOption[] = [];
+/*
   { customerId: 'CUS-0001', fullName: 'Nguyễn Văn Hoàng', phone: '0912345678' },
   { customerId: 'CUS-0002', fullName: 'Trần Thị Lan', phone: '0988776554' },
   { customerId: 'CUS-0003', fullName: 'Phạm Anh Tuấn', phone: '0903445566' },
   { customerId: 'CUS-0004', fullName: 'Lê Minh', phone: '0332111222' },
 ];
 
+*/
 const initialAccounts: Account[] = [
   {
-    accountId: 'ACC-0001',
-    accountNumber: '1000000001',
-    customerId: 'CUS-0001',
-    customerName: 'Nguyễn Văn Hoàng',
-    customerPhone: '0912345678',
-    accountType: 'Saving',
+    accountId: "ACC-0001",
+    accountNumber: "1000000001",
+    customerId: "CUS-0001",
+    customerName: "Nguyễn Văn Hoàng",
+    customerPhone: "0912345678",
+    accountType: "Saving",
     balance: 245000000,
-    currency: 'VND',
-    status: 'ACTIVE',
-    createdAt: '2021-01-16',
+    currency: "VND",
+    status: "ACTIVE",
+    createdAt: "2021-01-16",
     perTransactionLimit: 50000000,
     dailyTransferLimit: 200000000,
     interestRate: 5.2,
     transactions: [
       {
-        transactionId: 'TXN-49021',
-        fromAccount: '1000000001',
-        toAccount: '1000000002',
-        type: 'INTERNAL_TRANSFER',
+        transactionId: "TXN-49021",
+        fromAccount: "1000000001",
+        toAccount: "1000000002",
+        type: "INTERNAL_TRANSFER",
         amount: 25000000,
         fee: 2000,
-        status: 'COMPLETED',
-        createdAt: '2023-10-24 14:20',
+        status: "COMPLETED",
+        createdAt: "2023-10-24 14:20",
       },
       {
-        transactionId: 'TXN-49018',
-        fromAccount: 'SYSTEM',
-        toAccount: '1000000001',
-        type: 'INTEREST',
+        transactionId: "TXN-49018",
+        fromAccount: "SYSTEM",
+        toAccount: "1000000001",
+        type: "INTEREST",
         amount: 120000,
         fee: 0,
-        status: 'COMPLETED',
-        createdAt: '2023-10-23 00:01',
+        status: "COMPLETED",
+        createdAt: "2023-10-23 00:01",
       },
     ],
     balanceHistory: [
       {
-        historyId: 'HIS-001',
+        historyId: "HIS-001",
         oldBalance: 220000000,
         newBalance: 245000000,
-        changeReason: 'TRANSFER_IN',
-        validFrom: '2023-10-24 14:20',
-        validTo: 'CURRENT',
+        changeReason: "TRANSFER_IN",
+        validFrom: "2023-10-24 14:20",
+        validTo: "CURRENT",
       },
       {
-        historyId: 'HIS-002',
+        historyId: "HIS-002",
         oldBalance: 219880000,
         newBalance: 220000000,
-        changeReason: 'DAILY_INTEREST',
-        validFrom: '2023-10-23 00:01',
-        validTo: '2023-10-24 14:20',
+        changeReason: "DAILY_INTEREST",
+        validFrom: "2023-10-23 00:01",
+        validTo: "2023-10-24 14:20",
       },
     ],
     fees: [
       {
-        feeId: 'FEE-001',
-        transactionId: 'TXN-49021',
+        feeId: "FEE-001",
+        transactionId: "TXN-49021",
         feeAmount: 2000,
-        feeType: 'INTERNAL_TRANSFER_FEE',
-        createdAt: '2023-10-24 14:20',
+        feeType: "INTERNAL_TRANSFER_FEE",
+        createdAt: "2023-10-24 14:20",
       },
     ],
     linkedCards: [
       {
-        cardNumber: '**** **** **** 1234',
-        cardType: 'DEBIT',
-        expiryDate: '12/2028',
-        status: 'ACTIVE',
+        cardNumber: "**** **** **** 1234",
+        cardType: "DEBIT",
+        expiryDate: "12/2028",
+        status: "ACTIVE",
       },
     ],
   },
   {
-    accountId: 'ACC-0002',
-    accountNumber: '1000000002',
-    customerId: 'CUS-0001',
-    customerName: 'Nguyễn Văn Hoàng',
-    customerPhone: '0912345678',
-    accountType: 'Payment',
+    accountId: "ACC-0002",
+    accountNumber: "1000000002",
+    customerId: "CUS-0001",
+    customerName: "Nguyễn Văn Hoàng",
+    customerPhone: "0912345678",
+    accountType: "Payment",
     balance: 38500000,
-    currency: 'VND',
-    status: 'ACTIVE',
-    createdAt: '2021-02-20',
+    currency: "VND",
+    status: "ACTIVE",
+    createdAt: "2021-02-20",
     perTransactionLimit: 30000000,
     dailyTransferLimit: 100000000,
     interestRate: 0,
     transactions: [
       {
-        transactionId: 'TXN-49021',
-        fromAccount: '1000000001',
-        toAccount: '1000000002',
-        type: 'INTERNAL_TRANSFER',
+        transactionId: "TXN-49021",
+        fromAccount: "1000000001",
+        toAccount: "1000000002",
+        type: "INTERNAL_TRANSFER",
         amount: 25000000,
         fee: 0,
-        status: 'COMPLETED',
-        createdAt: '2023-10-24 14:20',
+        status: "COMPLETED",
+        createdAt: "2023-10-24 14:20",
       },
     ],
     balanceHistory: [
       {
-        historyId: 'HIS-003',
+        historyId: "HIS-003",
         oldBalance: 13500000,
         newBalance: 38500000,
-        changeReason: 'TRANSFER_IN',
-        validFrom: '2023-10-24 14:20',
-        validTo: 'CURRENT',
+        changeReason: "TRANSFER_IN",
+        validFrom: "2023-10-24 14:20",
+        validTo: "CURRENT",
       },
     ],
     fees: [],
     linkedCards: [
       {
-        cardNumber: '**** **** **** 5522',
-        cardType: 'ATM',
-        expiryDate: '08/2027',
-        status: 'ACTIVE',
+        cardNumber: "**** **** **** 5522",
+        cardType: "ATM",
+        expiryDate: "08/2027",
+        status: "ACTIVE",
       },
     ],
   },
   {
-    accountId: 'ACC-0003',
-    accountNumber: '1000000010',
-    customerId: 'CUS-0002',
-    customerName: 'Trần Thị Lan',
-    customerPhone: '0988776554',
-    accountType: 'Payment',
+    accountId: "ACC-0003",
+    accountNumber: "1000000010",
+    customerId: "CUS-0002",
+    customerName: "Trần Thị Lan",
+    customerPhone: "0988776554",
+    accountType: "Payment",
     balance: 72300000,
-    currency: 'VND',
-    status: 'ACTIVE',
-    createdAt: '2023-03-03',
+    currency: "VND",
+    status: "ACTIVE",
+    createdAt: "2023-03-03",
     perTransactionLimit: 40000000,
     dailyTransferLimit: 120000000,
     interestRate: 0,
     transactions: [
       {
-        transactionId: 'TXN-49022',
-        fromAccount: '1000000010',
-        toAccount: 'EVN',
-        type: 'BILL_PAYMENT',
+        transactionId: "TXN-49022",
+        fromAccount: "1000000010",
+        toAccount: "EVN",
+        type: "BILL_PAYMENT",
         amount: 320000,
         fee: 0,
-        status: 'PENDING',
-        createdAt: '2023-10-24 14:15',
+        status: "PENDING",
+        createdAt: "2023-10-24 14:15",
       },
     ],
     balanceHistory: [
       {
-        historyId: 'HIS-004',
+        historyId: "HIS-004",
         oldBalance: 72620000,
         newBalance: 72300000,
-        changeReason: 'BILL_PAYMENT_PENDING',
-        validFrom: '2023-10-24 14:15',
-        validTo: 'CURRENT',
+        changeReason: "BILL_PAYMENT_PENDING",
+        validFrom: "2023-10-24 14:15",
+        validTo: "CURRENT",
       },
     ],
     fees: [],
     linkedCards: [
       {
-        cardNumber: '**** **** **** 7788',
-        cardType: 'ATM',
-        expiryDate: '08/2027',
-        status: 'ACTIVE',
+        cardNumber: "**** **** **** 7788",
+        cardType: "ATM",
+        expiryDate: "08/2027",
+        status: "ACTIVE",
       },
     ],
   },
   {
-    accountId: 'ACC-0004',
-    accountNumber: '1000000021',
-    customerId: 'CUS-0003',
-    customerName: 'Phạm Anh Tuấn',
-    customerPhone: '0903445566',
-    accountType: 'Business',
+    accountId: "ACC-0004",
+    accountNumber: "1000000021",
+    customerId: "CUS-0003",
+    customerName: "Phạm Anh Tuấn",
+    customerPhone: "0903445566",
+    accountType: "Business",
     balance: 0,
-    currency: 'VND',
-    status: 'LOCKED',
-    createdAt: '2019-11-20',
+    currency: "VND",
+    status: "LOCKED",
+    createdAt: "2019-11-20",
     perTransactionLimit: 100000000,
     dailyTransferLimit: 500000000,
     interestRate: 0,
     transactions: [
       {
-        transactionId: 'TXN-49023',
-        fromAccount: '1000000021',
-        toAccount: '1000000034',
-        type: 'INTERNAL_TRANSFER',
+        transactionId: "TXN-49023",
+        fromAccount: "1000000021",
+        toAccount: "1000000034",
+        type: "INTERNAL_TRANSFER",
         amount: 2300000,
         fee: 2000,
-        status: 'FAILED',
-        createdAt: '2023-10-24 13:58',
+        status: "FAILED",
+        createdAt: "2023-10-24 13:58",
       },
     ],
     balanceHistory: [
       {
-        historyId: 'HIS-005',
+        historyId: "HIS-005",
         oldBalance: 2300000,
         newBalance: 0,
-        changeReason: 'ACCOUNT_LOCKED',
-        validFrom: '2023-10-24 13:58',
-        validTo: 'CURRENT',
+        changeReason: "ACCOUNT_LOCKED",
+        validFrom: "2023-10-24 13:58",
+        validTo: "CURRENT",
       },
     ],
     fees: [
       {
-        feeId: 'FEE-002',
-        transactionId: 'TXN-49023',
+        feeId: "FEE-002",
+        transactionId: "TXN-49023",
         feeAmount: 2000,
-        feeType: 'INTERNAL_TRANSFER_FEE',
-        createdAt: '2023-10-24 13:58',
+        feeType: "INTERNAL_TRANSFER_FEE",
+        createdAt: "2023-10-24 13:58",
       },
     ],
     linkedCards: [],
@@ -313,44 +323,44 @@ const initialAccounts: Account[] = [
 ];
 
 const tabs = [
-  { id: 'overview', label: 'Tổng quan', icon: Wallet },
-  { id: 'transactions', label: 'Giao dịch', icon: ArrowRightLeft },
-  { id: 'history', label: 'Biến động số dư', icon: History },
-  { id: 'fees', label: 'Phí', icon: ReceiptText },
-  { id: 'cards', label: 'Thẻ liên kết', icon: CreditCard },
+  { id: "overview", label: "Tổng quan", icon: Wallet },
+  { id: "transactions", label: "Giao dịch", icon: ArrowRightLeft },
+  { id: "history", label: "Biến động số dư", icon: History },
+  { id: "fees", label: "Phí", icon: ReceiptText },
+  { id: "cards", label: "Thẻ liên kết", icon: CreditCard },
 ];
 
-function formatMoney(value: number, currency = 'VND') {
-  return `${new Intl.NumberFormat('vi-VN').format(value)} ${currency}`;
+function formatMoney(value: number, currency = "VND") {
+  return `${new Intl.NumberFormat("vi-VN").format(value)} ${currency}`;
 }
 
 function getInitials(name: string) {
   return name
-    .split(' ')
+    .split(" ")
     .slice(-2)
     .map((word) => word[0])
-    .join('')
+    .join("")
     .toUpperCase();
 }
 
 function statusBadge(status: string) {
   const styles: Record<string, string> = {
-    ACTIVE: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    INACTIVE: 'bg-slate-50 text-slate-600 border-slate-200',
-    LOCKED: 'bg-red-50 text-red-700 border-red-200',
-    CLOSED: 'bg-slate-100 text-slate-700 border-slate-300',
-    PENDING: 'bg-yellow-50 text-yellow-700 border-yellow-200',
-    COMPLETED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    FAILED: 'bg-red-50 text-red-700 border-red-200',
-    REVERSED: 'bg-purple-50 text-purple-700 border-purple-200',
-    CANCELLED: 'bg-slate-50 text-slate-600 border-slate-200',
+    ACTIVE: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    INACTIVE: "bg-slate-50 text-slate-600 border-slate-200",
+    LOCKED: "bg-red-50 text-red-700 border-red-200",
+    CLOSED: "bg-slate-100 text-slate-700 border-slate-300",
+    PENDING: "bg-yellow-50 text-yellow-700 border-yellow-200",
+    COMPLETED: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    FAILED: "bg-red-50 text-red-700 border-red-200",
+    REVERSED: "bg-purple-50 text-purple-700 border-purple-200",
+    CANCELLED: "bg-slate-50 text-slate-600 border-slate-200",
   };
 
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-bold',
-        styles[status] || 'bg-slate-50 text-slate-600 border-slate-200'
+        "inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-bold",
+        styles[status] || "bg-slate-50 text-slate-600 border-slate-200",
       )}
     >
       {status}
@@ -388,27 +398,103 @@ function EmptyState({ text }: { text: string }) {
 
 export default function Accounts() {
   const [accounts, setAccounts] = useState<Account[]>(initialAccounts);
+  const [customers, setCustomers] = useState<CustomerOption[]>(hardcodedCustomers);
+  const [loadingCustomers, setLoadingCustomers] = useState(false);
+  const [customersError, setCustomersError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<'ALL' | AccountType>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | AccountStatus>('ALL');
   const [sortBy, setSortBy] = useState<'createdAt' | 'balance'>('createdAt');
 
+  useEffect(() => {
+    const loadCustomers = async () => {
+      setLoadingCustomers(true);
+      setCustomersError('');
+
+      try {
+        const rows = await getCustomers();
+        const mapped: CustomerOption[] = rows.map((row: Customer) => {
+          const id = Number(row.customer_id);
+          const formattedId = Number.isFinite(id)
+            ? `CUS-${String(id).padStart(4, '0')}`
+            : String(row.customer_id);
+
+          return {
+            customerId: formattedId,
+            customer_id: id,
+            fullName: row.full_name ?? formattedId,
+            phone: row.phone ?? '-',
+          };
+        });
+
+        setCustomers(mapped);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : '';
+        setCustomersError(msg || 'Không thể tải danh sách khách hàng từ hệ thống.');
+      } finally {
+        setLoadingCustomers(false);
+      }
+    };
+
+    void loadCustomers();
+  }, []);
+
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [isOpenAccountModalOpen, setIsOpenAccountModalOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isConfirmLockOpen, setIsConfirmLockOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState("overview");
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const apiAccounts = await getAccounts();
+        const mapped = apiAccounts.map(
+          (a) =>
+            ({
+              accountId: `ACC-${String((a as any).account_id).padStart(4, "0")}`,
+              accountNumber: a.account_number ?? "",
+              customerId: String(a.customer_id ?? ""),
+              customerName: a.full_name ?? "",
+              customerPhone: "",
+              accountType: (a.type_name as AccountType) ?? "Payment",
+              balance: Number(a.balance) || 0,
+              currency: "VND",
+              status: a.status ?? "ACTIVE",
+              createdAt: a.created_at ? String(a.created_at).slice(0, 10) : "",
+              perTransactionLimit: 0,
+              dailyTransferLimit: 0,
+              interestRate: 0,
+              transactions: [],
+              balanceHistory: [],
+              fees: [],
+              linkedCards: [],
+            }) as Account,
+        );
+
+        setAccounts(mapped);
+      } catch (err) {
+        setError("Không thể tải tài khoản từ API");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void load();
+  }, []);
 
   const [form, setForm] = useState({
-    customerId: '',
-    accountType: 'Payment' as AccountType,
-    accountNumber: '',
-    initialBalance: '',
-    currency: 'VND' as 'VND' | 'USD' | 'EUR',
-    status: 'ACTIVE' as AccountStatus,
-    perTransactionLimit: '50000000',
-    dailyTransferLimit: '200000000',
-    interestRate: '0',
+    customerId: "",
+    accountType: "Payment" as AccountType,
+    accountNumber: "",
+    initialBalance: "",
+    currency: "VND" as "VND" | "USD" | "EUR",
+    status: "ACTIVE" as AccountStatus,
+    perTransactionLimit: "50000000",
+    dailyTransferLimit: "200000000",
+    interestRate: "0",
   });
 
   const filteredAccounts = useMemo(() => {
@@ -422,74 +508,91 @@ export default function Accounts() {
           account.customerPhone.includes(keyword) ||
           account.accountId.toLowerCase().includes(keyword);
 
-        const matchType = typeFilter === 'ALL' || account.accountType === typeFilter;
-        const matchStatus = statusFilter === 'ALL' || account.status === statusFilter;
+        const matchType =
+          typeFilter === "ALL" || account.accountType === typeFilter;
+        const matchStatus =
+          statusFilter === "ALL" || account.status === statusFilter;
 
         return matchSearch && matchType && matchStatus;
       })
       .sort((a, b) => {
-        if (sortBy === 'balance') {
+        if (sortBy === "balance") {
           return b.balance - a.balance;
         }
 
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        return (
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
       });
   }, [accounts, searchTerm, typeFilter, statusFilter, sortBy]);
 
   const summary = useMemo(() => {
     return {
       totalAccounts: accounts.length,
-      activeAccounts: accounts.filter((item) => item.status === 'ACTIVE').length,
-      lockedAccounts: accounts.filter((item) => item.status === 'LOCKED').length,
+      activeAccounts: accounts.filter((item) => item.status === "ACTIVE")
+        .length,
+      lockedAccounts: accounts.filter((item) => item.status === "LOCKED")
+        .length,
       totalBalance: accounts.reduce((sum, item) => sum + item.balance, 0),
     };
   }, [accounts]);
 
   const generateAccountNumber = () => {
-    const random = Math.floor(1000000000 + Math.random() * 9000000000).toString();
+    const random = Math.floor(
+      1000000000 + Math.random() * 9000000000,
+    ).toString();
     setForm((prev) => ({ ...prev, accountNumber: random }));
   };
 
   const openAccountDetail = (account: Account) => {
     setSelectedAccount(account);
-    setActiveTab('overview');
+    setActiveTab("overview");
     setIsDetailOpen(true);
   };
 
   const openCreateAccount = () => {
     setForm({
-      customerId: '',
-      accountType: 'Payment',
-      accountNumber: '',
-      initialBalance: '',
-      currency: 'VND',
-      status: 'ACTIVE',
-      perTransactionLimit: '50000000',
-      dailyTransferLimit: '200000000',
-      interestRate: '0',
+      customerId: "",
+      accountType: "Payment",
+      accountNumber: "",
+      initialBalance: "",
+      currency: "VND",
+      status: "ACTIVE",
+      perTransactionLimit: "50000000",
+      dailyTransferLimit: "200000000",
+      interestRate: "0",
     });
     setIsOpenAccountModalOpen(true);
   };
 
   const submitOpenAccount = () => {
-    if (!form.customerId || !form.accountType || !form.accountNumber || form.initialBalance === '') {
-      alert('Vui lòng nhập đầy đủ khách hàng, loại tài khoản, số tài khoản và số dư ban đầu.');
+    if (
+      !form.customerId ||
+      !form.accountType ||
+      !form.accountNumber ||
+      form.initialBalance === ""
+    ) {
+      alert(
+        "Vui lòng nhập đầy đủ khách hàng, loại tài khoản, số tài khoản và số dư ban đầu.",
+      );
       return;
     }
 
-    const selectedCustomer = customers.find((customer) => customer.customerId === form.customerId);
+    const selectedCustomer = customers.find(
+      (customer) => customer.customerId === form.customerId,
+    );
 
     if (!selectedCustomer) {
-      alert('Khách hàng không tồn tại.');
+      alert("Khách hàng không tồn tại.");
       return;
     }
 
     const isDuplicateAccountNumber = accounts.some(
-      (account) => account.accountNumber === form.accountNumber
+      (account) => account.accountNumber === form.accountNumber,
     );
 
     if (isDuplicateAccountNumber) {
-      alert('Số tài khoản đã tồn tại.');
+      alert("Số tài khoản đã tồn tại.");
       return;
     }
 
@@ -499,27 +602,27 @@ export default function Accounts() {
     const interestRate = Number(form.interestRate);
 
     if (Number.isNaN(initialBalance) || initialBalance < 0) {
-      alert('Số dư ban đầu phải lớn hơn hoặc bằng 0.');
+      alert("Số dư ban đầu phải lớn hơn hoặc bằng 0.");
       return;
     }
 
     if (Number.isNaN(perTransactionLimit) || perTransactionLimit < 0) {
-      alert('Hạn mức mỗi giao dịch phải lớn hơn hoặc bằng 0.');
+      alert("Hạn mức mỗi giao dịch phải lớn hơn hoặc bằng 0.");
       return;
     }
 
     if (Number.isNaN(dailyTransferLimit) || dailyTransferLimit < 0) {
-      alert('Hạn mức ngày phải lớn hơn hoặc bằng 0.');
+      alert("Hạn mức ngày phải lớn hơn hoặc bằng 0.");
       return;
     }
 
     if (Number.isNaN(interestRate) || interestRate < 0) {
-      alert('Lãi suất phải lớn hơn hoặc bằng 0.');
+      alert("Lãi suất phải lớn hơn hoặc bằng 0.");
       return;
     }
 
     const newAccount: Account = {
-      accountId: `ACC-${String(accounts.length + 1).padStart(4, '0')}`,
+      accountId: `ACC-${String(accounts.length + 1).padStart(4, "0")}`,
       accountNumber: form.accountNumber,
       customerId: selectedCustomer.customerId,
       customerName: selectedCustomer.fullName,
@@ -538,9 +641,9 @@ export default function Accounts() {
           historyId: `HIS-${String(Date.now()).slice(-5)}`,
           oldBalance: 0,
           newBalance: initialBalance,
-          changeReason: 'ACCOUNT_OPENED',
-          validFrom: new Date().toISOString().slice(0, 16).replace('T', ' '),
-          validTo: 'CURRENT',
+          changeReason: "ACCOUNT_OPENED",
+          validFrom: new Date().toISOString().slice(0, 16).replace("T", " "),
+          validTo: "CURRENT",
         },
       ],
       fees: [],
@@ -555,14 +658,14 @@ export default function Accounts() {
     if (!selectedAccount) return;
 
     const nextStatus: AccountStatus =
-      selectedAccount.status === 'LOCKED' ? 'ACTIVE' : 'LOCKED';
+      selectedAccount.status === "LOCKED" ? "ACTIVE" : "LOCKED";
 
     setAccounts((prev) =>
       prev.map((account) =>
         account.accountId === selectedAccount.accountId
           ? { ...account, status: nextStatus }
-          : account
-      )
+          : account,
+      ),
     );
 
     setSelectedAccount({ ...selectedAccount, status: nextStatus });
@@ -694,8 +797,11 @@ export default function Accounts() {
             <div className="flex flex-col gap-3 md:flex-row">
               <select
                 value={typeFilter}
-                onChange={(event) => setTypeFilter(event.target.value as 'ALL' | AccountType)}
+                onChange={(event) =>
+                  setTypeFilter(event.target.value as "ALL" | AccountType)
+                }
                 className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-[#002147]"
+                disabled={loadingCustomers}
               >
                 <option value="ALL">Tất cả loại tài khoản</option>
                 <option value="Payment">Payment</option>
@@ -707,7 +813,7 @@ export default function Accounts() {
               <select
                 value={statusFilter}
                 onChange={(event) =>
-                  setStatusFilter(event.target.value as 'ALL' | AccountStatus)
+                  setStatusFilter(event.target.value as "ALL" | AccountStatus)
                 }
                 className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-[#002147]"
               >
@@ -720,7 +826,9 @@ export default function Accounts() {
 
               <select
                 value={sortBy}
-                onChange={(event) => setSortBy(event.target.value as 'createdAt' | 'balance')}
+                onChange={(event) =>
+                  setSortBy(event.target.value as "createdAt" | "balance")
+                }
                 className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-[#002147]"
               >
                 <option value="createdAt">Sắp xếp theo ngày tạo</option>
@@ -768,7 +876,10 @@ export default function Accounts() {
 
             <tbody className="divide-y divide-slate-100">
               {filteredAccounts.map((account) => (
-                <tr key={account.accountId} className="transition hover:bg-slate-50">
+                <tr
+                  key={account.accountId}
+                  className="transition hover:bg-slate-50"
+                >
                   <td className="px-6 py-4">
                     <div>
                       <p className="font-mono text-sm font-bold text-[#002147]">
@@ -789,7 +900,9 @@ export default function Accounts() {
                         <p className="text-sm font-bold text-slate-950">
                           {account.customerName}
                         </p>
-                        <p className="text-xs text-slate-500">{account.customerPhone}</p>
+                        <p className="text-xs text-slate-500">
+                          {account.customerPhone}
+                        </p>
                       </div>
                     </div>
                   </td>
@@ -803,8 +916,8 @@ export default function Accounts() {
                   <td className="px-6 py-4 text-right">
                     <p
                       className={cn(
-                        'text-sm font-bold',
-                        account.balance < 0 ? 'text-red-700' : 'text-slate-950'
+                        "text-sm font-bold",
+                        account.balance < 0 ? "text-red-700" : "text-slate-950",
                       )}
                     >
                       {formatMoney(account.balance, account.currency)}
@@ -844,14 +957,14 @@ export default function Accounts() {
                           setIsConfirmLockOpen(true);
                         }}
                         className={cn(
-                          'rounded-lg border p-2 transition',
-                          account.status === 'LOCKED'
-                            ? 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'
-                            : 'border-red-200 text-red-700 hover:bg-red-50'
+                          "rounded-lg border p-2 transition",
+                          account.status === "LOCKED"
+                            ? "border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                            : "border-red-200 text-red-700 hover:bg-red-50",
                         )}
-                        title={account.status === 'LOCKED' ? 'Mở khóa' : 'Khóa'}
+                        title={account.status === "LOCKED" ? "Mở khóa" : "Khóa"}
                       >
-                        {account.status === 'LOCKED' ? (
+                        {account.status === "LOCKED" ? (
                           <Unlock className="h-4 w-4" />
                         ) : (
                           <Lock className="h-4 w-4" />
@@ -879,7 +992,10 @@ export default function Accounts() {
           </p>
 
           <div className="flex items-center gap-2">
-            <button className="rounded-lg border border-slate-200 bg-white p-2 text-slate-400" disabled>
+            <button
+              className="rounded-lg border border-slate-200 bg-white p-2 text-slate-400"
+              disabled
+            >
               <ChevronLeft className="h-4 w-4" />
             </button>
             <span className="rounded-lg bg-[#002147] px-3 py-1.5 text-xs font-bold text-white">
@@ -903,8 +1019,8 @@ export default function Accounts() {
             <p className="font-bold">Quy tắc mở tài khoản</p>
             <p className="mt-1">
               Customer, account type, account number và balance là bắt buộc.
-              Account number không được trùng. Balance, hạn mức và lãi suất
-              phải lớn hơn hoặc bằng 0.
+              Account number không được trùng. Balance, hạn mức và lãi suất phải
+              lớn hơn hoặc bằng 0.
             </p>
           </div>
 
@@ -915,13 +1031,26 @@ export default function Accounts() {
               </label>
               <select
                 value={form.customerId}
-                onChange={(event) => setForm({ ...form, customerId: event.target.value })}
+                onChange={(event) =>
+                  setForm({ ...form, customerId: event.target.value })
+                }
                 className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:border-[#002147]"
               >
                 <option value="">-- Chọn khách hàng --</option>
-                {customers.map((customer) => (
+                {loadingCustomers && (
+                  <option value="" disabled>
+                    Loading customers...
+                  </option>
+                )}
+                {!loadingCustomers && customersError && (
+                  <option value="" disabled>
+                    {customersError}
+                  </option>
+                )}
+                {!loadingCustomers && !customersError && customers.map((customer) => (
                   <option key={customer.customerId} value={customer.customerId}>
-                    {customer.customerId} - {customer.fullName} - {customer.phone}
+                    {customer.customerId} - {customer.fullName} -{" "}
+                    {customer.phone}
                   </option>
                 ))}
               </select>
@@ -934,7 +1063,10 @@ export default function Accounts() {
               <select
                 value={form.accountType}
                 onChange={(event) =>
-                  setForm({ ...form, accountType: event.target.value as AccountType })
+                  setForm({
+                    ...form,
+                    accountType: event.target.value as AccountType,
+                  })
                 }
                 className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:border-[#002147]"
               >
@@ -952,7 +1084,10 @@ export default function Accounts() {
               <select
                 value={form.currency}
                 onChange={(event) =>
-                  setForm({ ...form, currency: event.target.value as 'VND' | 'USD' | 'EUR' })
+                  setForm({
+                    ...form,
+                    currency: event.target.value as "VND" | "USD" | "EUR",
+                  })
                 }
                 className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:border-[#002147]"
               >
@@ -1009,7 +1144,10 @@ export default function Accounts() {
               <select
                 value={form.status}
                 onChange={(event) =>
-                  setForm({ ...form, status: event.target.value as AccountStatus })
+                  setForm({
+                    ...form,
+                    status: event.target.value as AccountStatus,
+                  })
                 }
                 className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:border-[#002147]"
               >
@@ -1109,7 +1247,7 @@ export default function Accounts() {
                   </h3>
 
                   <p className="mt-2 text-sm text-slate-500">
-                    Chủ tài khoản:{' '}
+                    Chủ tài khoản:{" "}
                     <span className="font-bold text-slate-900">
                       {selectedAccount.customerName}
                     </span>
@@ -1130,18 +1268,20 @@ export default function Accounts() {
                   <button
                     onClick={() => setIsConfirmLockOpen(true)}
                     className={cn(
-                      'inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold',
-                      selectedAccount.status === 'LOCKED'
-                        ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                        : 'bg-red-600 text-white hover:bg-red-700'
+                      "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold",
+                      selectedAccount.status === "LOCKED"
+                        ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                        : "bg-red-600 text-white hover:bg-red-700",
                     )}
                   >
-                    {selectedAccount.status === 'LOCKED' ? (
+                    {selectedAccount.status === "LOCKED" ? (
                       <Unlock className="h-4 w-4" />
                     ) : (
                       <Lock className="h-4 w-4" />
                     )}
-                    {selectedAccount.status === 'LOCKED' ? 'Mở khóa' : 'Khóa tài khoản'}
+                    {selectedAccount.status === "LOCKED"
+                      ? "Mở khóa"
+                      : "Khóa tài khoản"}
                   </button>
                 </div>
               </div>
@@ -1152,7 +1292,10 @@ export default function Accounts() {
                     Số dư hiện tại
                   </p>
                   <p className="mt-2 text-3xl font-bold">
-                    {formatMoney(selectedAccount.balance, selectedAccount.currency)}
+                    {formatMoney(
+                      selectedAccount.balance,
+                      selectedAccount.currency,
+                    )}
                   </p>
                 </div>
 
@@ -1161,7 +1304,10 @@ export default function Accounts() {
                     Hạn mức mỗi giao dịch
                   </p>
                   <p className="mt-2 text-xl font-bold text-slate-950">
-                    {formatMoney(selectedAccount.perTransactionLimit, selectedAccount.currency)}
+                    {formatMoney(
+                      selectedAccount.perTransactionLimit,
+                      selectedAccount.currency,
+                    )}
                   </p>
                 </div>
 
@@ -1170,7 +1316,10 @@ export default function Accounts() {
                     Hạn mức ngày
                   </p>
                   <p className="mt-2 text-xl font-bold text-slate-950">
-                    {formatMoney(selectedAccount.dailyTransferLimit, selectedAccount.currency)}
+                    {formatMoney(
+                      selectedAccount.dailyTransferLimit,
+                      selectedAccount.currency,
+                    )}
                   </p>
                 </div>
               </div>
@@ -1185,10 +1334,10 @@ export default function Accounts() {
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     className={cn(
-                      'flex shrink-0 items-center gap-2 border-b-2 px-4 py-4 text-sm font-bold transition',
+                      "flex shrink-0 items-center gap-2 border-b-2 px-4 py-4 text-sm font-bold transition",
                       activeTab === tab.id
-                        ? 'border-[#002147] text-[#002147]'
-                        : 'border-transparent text-slate-500 hover:text-slate-800'
+                        ? "border-[#002147] text-[#002147]"
+                        : "border-transparent text-slate-500 hover:text-slate-800",
                     )}
                   >
                     <Icon className="h-4 w-4" />
@@ -1199,47 +1348,111 @@ export default function Accounts() {
             </div>
 
             <div className="p-6">
-              {activeTab === 'overview' && (
+              {activeTab === "overview" && (
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  <Field label="Account ID" value={selectedAccount.accountId} icon={Settings} />
-                  <Field label="Số tài khoản" value={selectedAccount.accountNumber} icon={Wallet} />
-                  <Field label="Chủ tài khoản" value={selectedAccount.customerName} icon={User} />
-                  <Field label="Số điện thoại" value={selectedAccount.customerPhone} icon={Users} />
-                  <Field label="Loại tài khoản" value={selectedAccount.accountType} icon={Landmark} />
-                  <Field label="Trạng thái" value={selectedAccount.status} icon={BadgeCheck} />
-                  <Field label="Ngày tạo" value={selectedAccount.createdAt} icon={Calendar} />
-                  <Field label="Lãi suất" value={`${selectedAccount.interestRate}%`} icon={CircleDollarSign} />
+                  <Field
+                    label="Account ID"
+                    value={selectedAccount.accountId}
+                    icon={Settings}
+                  />
+                  <Field
+                    label="Số tài khoản"
+                    value={selectedAccount.accountNumber}
+                    icon={Wallet}
+                  />
+                  <Field
+                    label="Chủ tài khoản"
+                    value={selectedAccount.customerName}
+                    icon={User}
+                  />
+                  <Field
+                    label="Số điện thoại"
+                    value={selectedAccount.customerPhone}
+                    icon={Users}
+                  />
+                  <Field
+                    label="Loại tài khoản"
+                    value={selectedAccount.accountType}
+                    icon={Landmark}
+                  />
+                  <Field
+                    label="Trạng thái"
+                    value={selectedAccount.status}
+                    icon={BadgeCheck}
+                  />
+                  <Field
+                    label="Ngày tạo"
+                    value={selectedAccount.createdAt}
+                    icon={Calendar}
+                  />
+                  <Field
+                    label="Lãi suất"
+                    value={`${selectedAccount.interestRate}%`}
+                    icon={CircleDollarSign}
+                  />
                   <Field label="Tiền tệ" value={selectedAccount.currency} />
                 </div>
               )}
 
-              {activeTab === 'transactions' && (
-                selectedAccount.transactions.length ? (
+              {activeTab === "transactions" &&
+                (selectedAccount.transactions.length ? (
                   <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
                     <table className="w-full min-w-[850px] text-left">
                       <thead className="bg-slate-50">
                         <tr>
-                          <th className="px-4 py-3 text-xs font-bold uppercase text-slate-500">Mã giao dịch</th>
-                          <th className="px-4 py-3 text-xs font-bold uppercase text-slate-500">Từ TK</th>
-                          <th className="px-4 py-3 text-xs font-bold uppercase text-slate-500">Đến TK</th>
-                          <th className="px-4 py-3 text-xs font-bold uppercase text-slate-500">Loại</th>
-                          <th className="px-4 py-3 text-xs font-bold uppercase text-slate-500">Số tiền</th>
-                          <th className="px-4 py-3 text-xs font-bold uppercase text-slate-500">Phí</th>
-                          <th className="px-4 py-3 text-xs font-bold uppercase text-slate-500">Trạng thái</th>
-                          <th className="px-4 py-3 text-xs font-bold uppercase text-slate-500">Thời gian</th>
+                          <th className="px-4 py-3 text-xs font-bold uppercase text-slate-500">
+                            Mã giao dịch
+                          </th>
+                          <th className="px-4 py-3 text-xs font-bold uppercase text-slate-500">
+                            Từ TK
+                          </th>
+                          <th className="px-4 py-3 text-xs font-bold uppercase text-slate-500">
+                            Đến TK
+                          </th>
+                          <th className="px-4 py-3 text-xs font-bold uppercase text-slate-500">
+                            Loại
+                          </th>
+                          <th className="px-4 py-3 text-xs font-bold uppercase text-slate-500">
+                            Số tiền
+                          </th>
+                          <th className="px-4 py-3 text-xs font-bold uppercase text-slate-500">
+                            Phí
+                          </th>
+                          <th className="px-4 py-3 text-xs font-bold uppercase text-slate-500">
+                            Trạng thái
+                          </th>
+                          <th className="px-4 py-3 text-xs font-bold uppercase text-slate-500">
+                            Thời gian
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {selectedAccount.transactions.map((transaction) => (
                           <tr key={transaction.transactionId}>
-                            <td className="px-4 py-3 font-mono text-sm font-bold text-[#002147]">{transaction.transactionId}</td>
-                            <td className="px-4 py-3 font-mono text-sm">{transaction.fromAccount}</td>
-                            <td className="px-4 py-3 font-mono text-sm">{transaction.toAccount}</td>
-                            <td className="px-4 py-3 text-sm">{transaction.type}</td>
-                            <td className="px-4 py-3 text-sm font-bold">{formatMoney(transaction.amount)}</td>
-                            <td className="px-4 py-3 text-sm">{formatMoney(transaction.fee)}</td>
-                            <td className="px-4 py-3">{statusBadge(transaction.status)}</td>
-                            <td className="px-4 py-3 text-sm text-slate-500">{transaction.createdAt}</td>
+                            <td className="px-4 py-3 font-mono text-sm font-bold text-[#002147]">
+                              {transaction.transactionId}
+                            </td>
+                            <td className="px-4 py-3 font-mono text-sm">
+                              {transaction.fromAccount}
+                            </td>
+                            <td className="px-4 py-3 font-mono text-sm">
+                              {transaction.toAccount}
+                            </td>
+                            <td className="px-4 py-3 text-sm">
+                              {transaction.type}
+                            </td>
+                            <td className="px-4 py-3 text-sm font-bold">
+                              {formatMoney(transaction.amount)}
+                            </td>
+                            <td className="px-4 py-3 text-sm">
+                              {formatMoney(transaction.fee)}
+                            </td>
+                            <td className="px-4 py-3">
+                              {statusBadge(transaction.status)}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-slate-500">
+                              {transaction.createdAt}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -1247,19 +1460,22 @@ export default function Accounts() {
                   </div>
                 ) : (
                   <EmptyState text="Tài khoản chưa có giao dịch." />
-                )
-              )}
+                ))}
 
-              {activeTab === 'history' && (
-                selectedAccount.balanceHistory.length ? (
+              {activeTab === "history" &&
+                (selectedAccount.balanceHistory.length ? (
                   <div className="space-y-4">
                     {selectedAccount.balanceHistory.map((item, index) => (
-                      <div key={item.historyId} className="flex gap-4 rounded-2xl border border-slate-200 bg-white p-5">
+                      <div
+                        key={item.historyId}
+                        className="flex gap-4 rounded-2xl border border-slate-200 bg-white p-5"
+                      >
                         <div className="flex flex-col items-center">
                           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#002147] text-white">
                             <History className="h-4 w-4" />
                           </div>
-                          {index !== selectedAccount.balanceHistory.length - 1 && (
+                          {index !==
+                            selectedAccount.balanceHistory.length - 1 && (
                             <div className="mt-2 h-full w-px flex-1 bg-slate-200" />
                           )}
                         </div>
@@ -1267,7 +1483,9 @@ export default function Accounts() {
                         <div className="flex-1">
                           <div className="flex flex-col justify-between gap-2 md:flex-row md:items-center">
                             <div>
-                              <p className="font-bold text-slate-950">{item.changeReason}</p>
+                              <p className="font-bold text-slate-950">
+                                {item.changeReason}
+                              </p>
                               <p className="mt-1 text-xs text-slate-500">
                                 {item.validFrom} → {item.validTo}
                               </p>
@@ -1278,8 +1496,14 @@ export default function Accounts() {
                           </div>
 
                           <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-                            <Field label="Số dư cũ" value={formatMoney(item.oldBalance)} />
-                            <Field label="Số dư mới" value={formatMoney(item.newBalance)} />
+                            <Field
+                              label="Số dư cũ"
+                              value={formatMoney(item.oldBalance)}
+                            />
+                            <Field
+                              label="Số dư mới"
+                              value={formatMoney(item.newBalance)}
+                            />
                           </div>
                         </div>
                       </div>
@@ -1287,30 +1511,47 @@ export default function Accounts() {
                   </div>
                 ) : (
                   <EmptyState text="Chưa có lịch sử biến động số dư." />
-                )
-              )}
+                ))}
 
-              {activeTab === 'fees' && (
-                selectedAccount.fees.length ? (
+              {activeTab === "fees" &&
+                (selectedAccount.fees.length ? (
                   <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
                     <table className="w-full min-w-[720px] text-left">
                       <thead className="bg-slate-50">
                         <tr>
-                          <th className="px-4 py-3 text-xs font-bold uppercase text-slate-500">Fee ID</th>
-                          <th className="px-4 py-3 text-xs font-bold uppercase text-slate-500">Mã giao dịch</th>
-                          <th className="px-4 py-3 text-xs font-bold uppercase text-slate-500">Loại phí</th>
-                          <th className="px-4 py-3 text-xs font-bold uppercase text-slate-500">Số tiền phí</th>
-                          <th className="px-4 py-3 text-xs font-bold uppercase text-slate-500">Thời gian</th>
+                          <th className="px-4 py-3 text-xs font-bold uppercase text-slate-500">
+                            Fee ID
+                          </th>
+                          <th className="px-4 py-3 text-xs font-bold uppercase text-slate-500">
+                            Mã giao dịch
+                          </th>
+                          <th className="px-4 py-3 text-xs font-bold uppercase text-slate-500">
+                            Loại phí
+                          </th>
+                          <th className="px-4 py-3 text-xs font-bold uppercase text-slate-500">
+                            Số tiền phí
+                          </th>
+                          <th className="px-4 py-3 text-xs font-bold uppercase text-slate-500">
+                            Thời gian
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {selectedAccount.fees.map((fee) => (
                           <tr key={fee.feeId}>
-                            <td className="px-4 py-3 font-mono text-sm font-bold text-[#002147]">{fee.feeId}</td>
-                            <td className="px-4 py-3 font-mono text-sm">{fee.transactionId}</td>
+                            <td className="px-4 py-3 font-mono text-sm font-bold text-[#002147]">
+                              {fee.feeId}
+                            </td>
+                            <td className="px-4 py-3 font-mono text-sm">
+                              {fee.transactionId}
+                            </td>
                             <td className="px-4 py-3 text-sm">{fee.feeType}</td>
-                            <td className="px-4 py-3 text-sm font-bold">{formatMoney(fee.feeAmount)}</td>
-                            <td className="px-4 py-3 text-sm text-slate-500">{fee.createdAt}</td>
+                            <td className="px-4 py-3 text-sm font-bold">
+                              {formatMoney(fee.feeAmount)}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-slate-500">
+                              {fee.createdAt}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -1318,14 +1559,16 @@ export default function Accounts() {
                   </div>
                 ) : (
                   <EmptyState text="Tài khoản chưa phát sinh phí giao dịch." />
-                )
-              )}
+                ))}
 
-              {activeTab === 'cards' && (
-                selectedAccount.linkedCards.length ? (
+              {activeTab === "cards" &&
+                (selectedAccount.linkedCards.length ? (
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     {selectedAccount.linkedCards.map((card) => (
-                      <div key={card.cardNumber} className="rounded-3xl bg-[#002147] p-6 text-white shadow-sm">
+                      <div
+                        key={card.cardNumber}
+                        className="rounded-3xl bg-[#002147] p-6 text-white shadow-sm"
+                      >
                         <div className="mb-8 flex items-center justify-between">
                           <CreditCard className="h-7 w-7" />
                           {statusBadge(card.status)}
@@ -1346,7 +1589,9 @@ export default function Accounts() {
                           </div>
                           <div>
                             <p className="text-white/60">Tài khoản</p>
-                            <p className="font-bold">{selectedAccount.accountNumber}</p>
+                            <p className="font-bold">
+                              {selectedAccount.accountNumber}
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -1354,8 +1599,7 @@ export default function Accounts() {
                   </div>
                 ) : (
                   <EmptyState text="Tài khoản chưa có thẻ liên kết." />
-                )
-              )}
+                ))}
             </div>
           </div>
         )}
@@ -1373,14 +1617,14 @@ export default function Accounts() {
               <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-700" />
               <div>
                 <p className="font-bold text-amber-900">
-                  {selectedAccount?.status === 'LOCKED'
-                    ? 'Mở khóa tài khoản?'
-                    : 'Khóa tài khoản?'}
+                  {selectedAccount?.status === "LOCKED"
+                    ? "Mở khóa tài khoản?"
+                    : "Khóa tài khoản?"}
                 </p>
                 <p className="mt-1 text-sm text-amber-800">
-                  Thao tác này sẽ thay đổi trạng thái tài khoản{' '}
-                  <strong>{selectedAccount?.accountNumber}</strong> của khách hàng{' '}
-                  <strong>{selectedAccount?.customerName}</strong>.
+                  Thao tác này sẽ thay đổi trạng thái tài khoản{" "}
+                  <strong>{selectedAccount?.accountNumber}</strong> của khách
+                  hàng <strong>{selectedAccount?.customerName}</strong>.
                 </p>
               </div>
             </div>
@@ -1399,7 +1643,7 @@ export default function Accounts() {
               onClick={toggleAccountLock}
               className="inline-flex items-center gap-2 rounded-xl bg-[#002147] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#001936]"
             >
-              {selectedAccount?.status === 'LOCKED' ? (
+              {selectedAccount?.status === "LOCKED" ? (
                 <Unlock className="h-4 w-4" />
               ) : (
                 <Lock className="h-4 w-4" />

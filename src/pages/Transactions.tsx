@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ArrowRightLeft,
   BadgeCheck,
@@ -19,22 +19,27 @@ import {
   X,
   XCircle,
   Clock3,
-} from 'lucide-react';
-import { cn } from '../lib/utils';
+} from "lucide-react";
+import { cn } from "../lib/utils";
+import {
+  getTransactions,
+  reverseTransaction as apiReverse,
+  transferMoney,
+} from "../services/transactions.service";
 
 type TransactionStatus =
-  | 'PENDING'
-  | 'COMPLETED'
-  | 'FAILED'
-  | 'REVERSED'
-  | 'CANCELLED';
+  | "PENDING"
+  | "COMPLETED"
+  | "FAILED"
+  | "REVERSED"
+  | "CANCELLED";
 
 type TransactionType =
-  | 'INTERNAL_TRANSFER'
-  | 'BILL_PAYMENT'
-  | 'LOAN_PAYMENT'
-  | 'INTEREST'
-  | 'REVERSAL';
+  | "INTERNAL_TRANSFER"
+  | "BILL_PAYMENT"
+  | "LOAN_PAYMENT"
+  | "INTEREST"
+  | "REVERSAL";
 
 type Transaction = {
   transactionId: string;
@@ -58,155 +63,155 @@ type Transaction = {
 
 const initialTransactions: Transaction[] = [
   {
-    transactionId: 'TXN-49021',
-    fromAccount: '1000000001',
-    toAccount: '1000000002',
-    senderName: 'Nguyễn Văn Hoàng',
-    receiverName: 'Trần Thị Lan',
-    type: 'INTERNAL_TRANSFER',
+    transactionId: "TXN-49021",
+    fromAccount: "1000000001",
+    toAccount: "1000000002",
+    senderName: "Nguyễn Văn Hoàng",
+    receiverName: "Trần Thị Lan",
+    type: "INTERNAL_TRANSFER",
     amount: 25000000,
     fee: 2000,
-    status: 'COMPLETED',
-    createdAt: '2023-10-24 14:20',
-    performedBy: 'CUSTOMER: CUS-0001',
-    note: 'Chuyển tiền nội bộ',
+    status: "COMPLETED",
+    createdAt: "2023-10-24 14:20",
+    performedBy: "CUSTOMER: CUS-0001",
+    note: "Chuyển tiền nội bộ",
     logs: [
       {
-        action: 'TRANSFER_CREATED',
-        performedBy: 'CUS-0001',
-        createdAt: '2023-10-24 14:20',
+        action: "TRANSFER_CREATED",
+        performedBy: "CUS-0001",
+        createdAt: "2023-10-24 14:20",
       },
       {
-        action: 'BALANCE_UPDATED',
-        performedBy: 'SYSTEM',
-        createdAt: '2023-10-24 14:20',
+        action: "BALANCE_UPDATED",
+        performedBy: "SYSTEM",
+        createdAt: "2023-10-24 14:20",
       },
       {
-        action: 'TRANSACTION_COMPLETED',
-        performedBy: 'SYSTEM',
-        createdAt: '2023-10-24 14:20',
+        action: "TRANSACTION_COMPLETED",
+        performedBy: "SYSTEM",
+        createdAt: "2023-10-24 14:20",
       },
     ],
   },
   {
-    transactionId: 'TXN-49022',
-    fromAccount: '1000000010',
-    toAccount: 'EVN-BILL-1022',
-    senderName: 'Trần Thị Lan',
-    receiverName: 'EVN',
-    type: 'BILL_PAYMENT',
+    transactionId: "TXN-49022",
+    fromAccount: "1000000010",
+    toAccount: "EVN-BILL-1022",
+    senderName: "Trần Thị Lan",
+    receiverName: "EVN",
+    type: "BILL_PAYMENT",
     amount: 320000,
     fee: 0,
-    status: 'PENDING',
-    createdAt: '2023-10-24 14:15',
-    performedBy: 'CUSTOMER: CUS-0002',
-    note: 'Thanh toán hóa đơn điện',
+    status: "PENDING",
+    createdAt: "2023-10-24 14:15",
+    performedBy: "CUSTOMER: CUS-0002",
+    note: "Thanh toán hóa đơn điện",
     logs: [
       {
-        action: 'PAYMENT_CREATED',
-        performedBy: 'CUS-0002',
-        createdAt: '2023-10-24 14:15',
+        action: "PAYMENT_CREATED",
+        performedBy: "CUS-0002",
+        createdAt: "2023-10-24 14:15",
       },
     ],
   },
   {
-    transactionId: 'TXN-49023',
-    fromAccount: '1000000021',
-    toAccount: '1000000034',
-    senderName: 'Phạm Anh Tuấn',
-    receiverName: 'Lê Minh',
-    type: 'INTERNAL_TRANSFER',
+    transactionId: "TXN-49023",
+    fromAccount: "1000000021",
+    toAccount: "1000000034",
+    senderName: "Phạm Anh Tuấn",
+    receiverName: "Lê Minh",
+    type: "INTERNAL_TRANSFER",
     amount: 2300000,
     fee: 2000,
-    status: 'FAILED',
-    createdAt: '2023-10-24 13:58',
-    performedBy: 'CUSTOMER: CUS-0003',
-    note: 'Không đủ số dư khả dụng',
+    status: "FAILED",
+    createdAt: "2023-10-24 13:58",
+    performedBy: "CUSTOMER: CUS-0003",
+    note: "Không đủ số dư khả dụng",
     logs: [
       {
-        action: 'TRANSFER_CREATED',
-        performedBy: 'CUS-0003',
-        createdAt: '2023-10-24 13:58',
+        action: "TRANSFER_CREATED",
+        performedBy: "CUS-0003",
+        createdAt: "2023-10-24 13:58",
       },
       {
-        action: 'VALIDATION_FAILED_INSUFFICIENT_BALANCE',
-        performedBy: 'SYSTEM',
-        createdAt: '2023-10-24 13:58',
+        action: "VALIDATION_FAILED_INSUFFICIENT_BALANCE",
+        performedBy: "SYSTEM",
+        createdAt: "2023-10-24 13:58",
       },
     ],
   },
   {
-    transactionId: 'TXN-49024',
-    fromAccount: '1000000045',
-    toAccount: 'LOAN-3001',
-    senderName: 'Công ty Minh Long',
-    receiverName: 'Enterprise Bank',
-    type: 'LOAN_PAYMENT',
+    transactionId: "TXN-49024",
+    fromAccount: "1000000045",
+    toAccount: "LOAN-3001",
+    senderName: "Công ty Minh Long",
+    receiverName: "Enterprise Bank",
+    type: "LOAN_PAYMENT",
     amount: 85000000,
     fee: 0,
-    status: 'COMPLETED',
-    createdAt: '2023-10-24 13:45',
-    performedBy: 'EMPLOYEE: EMP-0009',
-    note: 'Thanh toán khoản vay',
+    status: "COMPLETED",
+    createdAt: "2023-10-24 13:45",
+    performedBy: "EMPLOYEE: EMP-0009",
+    note: "Thanh toán khoản vay",
     logs: [
       {
-        action: 'LOAN_PAYMENT_CREATED',
-        performedBy: 'EMP-0009',
-        createdAt: '2023-10-24 13:45',
+        action: "LOAN_PAYMENT_CREATED",
+        performedBy: "EMP-0009",
+        createdAt: "2023-10-24 13:45",
       },
       {
-        action: 'TRANSACTION_COMPLETED',
-        performedBy: 'SYSTEM',
-        createdAt: '2023-10-24 13:45',
+        action: "TRANSACTION_COMPLETED",
+        performedBy: "SYSTEM",
+        createdAt: "2023-10-24 13:45",
       },
     ],
   },
   {
-    transactionId: 'TXN-49025',
-    fromAccount: '1000000091',
-    toAccount: '1000000095',
-    senderName: 'Phạm Gia Hân',
-    receiverName: 'Nguyễn Nhật Nam',
-    type: 'REVERSAL',
+    transactionId: "TXN-49025",
+    fromAccount: "1000000091",
+    toAccount: "1000000095",
+    senderName: "Phạm Gia Hân",
+    receiverName: "Nguyễn Nhật Nam",
+    type: "REVERSAL",
     amount: 5000000,
     fee: 0,
-    status: 'REVERSED',
-    createdAt: '2023-10-24 13:22',
-    performedBy: 'ADMIN: ADM-0001',
-    note: 'Hoàn tiền giao dịch nhầm',
+    status: "REVERSED",
+    createdAt: "2023-10-24 13:22",
+    performedBy: "ADMIN: ADM-0001",
+    note: "Hoàn tiền giao dịch nhầm",
     logs: [
       {
-        action: 'REVERSAL_REQUESTED',
-        performedBy: 'ADM-0001',
-        createdAt: '2023-10-24 13:20',
+        action: "REVERSAL_REQUESTED",
+        performedBy: "ADM-0001",
+        createdAt: "2023-10-24 13:20",
       },
       {
-        action: 'TRANSACTION_REVERSED',
-        performedBy: 'SYSTEM',
-        createdAt: '2023-10-24 13:22',
+        action: "TRANSACTION_REVERSED",
+        performedBy: "SYSTEM",
+        createdAt: "2023-10-24 13:22",
       },
     ],
   },
 ];
 
 function formatMoney(value: number) {
-  return `${new Intl.NumberFormat('vi-VN').format(value)} VND`;
+  return `${new Intl.NumberFormat("vi-VN").format(value)} VND`;
 }
 
 function statusBadge(status: TransactionStatus) {
   const styles: Record<TransactionStatus, string> = {
-    PENDING: 'bg-yellow-50 text-yellow-700 border-yellow-200',
-    COMPLETED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    FAILED: 'bg-red-50 text-red-700 border-red-200',
-    REVERSED: 'bg-purple-50 text-purple-700 border-purple-200',
-    CANCELLED: 'bg-slate-50 text-slate-600 border-slate-200',
+    PENDING: "bg-yellow-50 text-yellow-700 border-yellow-200",
+    COMPLETED: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    FAILED: "bg-red-50 text-red-700 border-red-200",
+    REVERSED: "bg-purple-50 text-purple-700 border-purple-200",
+    CANCELLED: "bg-slate-50 text-slate-600 border-slate-200",
   };
 
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-bold',
-        styles[status]
+        "inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-bold",
+        styles[status],
       )}
     >
       {status}
@@ -215,10 +220,13 @@ function statusBadge(status: TransactionStatus) {
 }
 
 function statusIcon(status: TransactionStatus) {
-  if (status === 'COMPLETED') return <BadgeCheck className="h-4 w-4 text-emerald-600" />;
-  if (status === 'PENDING') return <Clock3 className="h-4 w-4 text-yellow-600" />;
-  if (status === 'FAILED') return <XCircle className="h-4 w-4 text-red-600" />;
-  if (status === 'REVERSED') return <RotateCcw className="h-4 w-4 text-purple-600" />;
+  if (status === "COMPLETED")
+    return <BadgeCheck className="h-4 w-4 text-emerald-600" />;
+  if (status === "PENDING")
+    return <Clock3 className="h-4 w-4 text-yellow-600" />;
+  if (status === "FAILED") return <XCircle className="h-4 w-4 text-red-600" />;
+  if (status === "REVERSED")
+    return <RotateCcw className="h-4 w-4 text-purple-600" />;
   return <XCircle className="h-4 w-4 text-slate-500" />;
 }
 
@@ -227,7 +235,7 @@ function Modal({
   title,
   children,
   onClose,
-  maxWidth = 'max-w-5xl',
+  maxWidth = "max-w-5xl",
 }: {
   open: boolean;
   title: string;
@@ -239,7 +247,12 @@ function Modal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-      <div className={cn('max-h-[90vh] w-full overflow-hidden rounded-3xl bg-white shadow-2xl', maxWidth)}>
+      <div
+        className={cn(
+          "max-h-[90vh] w-full overflow-hidden rounded-3xl bg-white shadow-2xl",
+          maxWidth,
+        )}
+      >
         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
           <h3 className="text-lg font-bold text-slate-950">{title}</h3>
           <button
@@ -249,24 +262,38 @@ function Modal({
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="max-h-[calc(90vh-73px)] overflow-y-auto">{children}</div>
+        <div className="max-h-[calc(90vh-73px)] overflow-y-auto">
+          {children}
+        </div>
       </div>
     </div>
   );
 }
 
 export default function Transactions() {
-  const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | TransactionStatus>('ALL');
-  const [typeFilter, setTypeFilter] = useState<'ALL' | TransactionType>('ALL');
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
-  const [minAmount, setMinAmount] = useState('');
-  const [maxAmount, setMaxAmount] = useState('');
-  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | TransactionStatus>(
+    "ALL",
+  );
+  const [typeFilter, setTypeFilter] = useState<"ALL" | TransactionType>("ALL");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [minAmount, setMinAmount] = useState("");
+  const [maxAmount, setMaxAmount] = useState("");
+  const [selectedTransaction, setSelectedTransaction] =
+    useState<Transaction | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [reverseOpen, setReverseOpen] = useState(false);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  
+  // Transfer form state
+  const [transferFromAccountId, setTransferFromAccountId] = useState("");
+  const [transferToAccountId, setTransferToAccountId] = useState("");
+  const [transferAmount, setTransferAmount] = useState("");
+  const [transferLoading, setTransferLoading] = useState(false);
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter((item) => {
@@ -279,8 +306,9 @@ export default function Transactions() {
         item.senderName.toLowerCase().includes(keyword) ||
         item.receiverName.toLowerCase().includes(keyword);
 
-      const matchStatus = statusFilter === 'ALL' || item.status === statusFilter;
-      const matchType = typeFilter === 'ALL' || item.type === typeFilter;
+      const matchStatus =
+        statusFilter === "ALL" || item.status === statusFilter;
+      const matchType = typeFilter === "ALL" || item.type === typeFilter;
       const matchMin = !minAmount || item.amount >= Number(minAmount);
       const matchMax = !maxAmount || item.amount <= Number(maxAmount);
       const dateOnly = item.createdAt.slice(0, 10);
@@ -297,16 +325,26 @@ export default function Transactions() {
         matchToDate
       );
     });
-  }, [transactions, searchTerm, statusFilter, typeFilter, fromDate, toDate, minAmount, maxAmount]);
+  }, [
+    transactions,
+    searchTerm,
+    statusFilter,
+    typeFilter,
+    fromDate,
+    toDate,
+    minAmount,
+    maxAmount,
+  ]);
 
   const summary = useMemo(() => {
     return {
       total: transactions.length,
-      completed: transactions.filter((item) => item.status === 'COMPLETED').length,
-      pending: transactions.filter((item) => item.status === 'PENDING').length,
-      failed: transactions.filter((item) => item.status === 'FAILED').length,
+      completed: transactions.filter((item) => item.status === "COMPLETED")
+        .length,
+      pending: transactions.filter((item) => item.status === "PENDING").length,
+      failed: transactions.filter((item) => item.status === "FAILED").length,
       totalAmount: transactions
-        .filter((item) => item.status === 'COMPLETED')
+        .filter((item) => item.status === "COMPLETED")
         .reduce((sum, item) => sum + item.amount, 0),
     };
   }, [transactions]);
@@ -321,36 +359,131 @@ export default function Transactions() {
     setReverseOpen(true);
   };
 
-  const reverseTransaction = () => {
+  const reverseTransaction = async () => {
     if (!selectedTransaction) return;
 
-    setTransactions((prev) =>
-      prev.map((item) =>
-        item.transactionId === selectedTransaction.transactionId
-          ? {
-            ...item,
-            status: 'REVERSED',
-            logs: [
-              ...item.logs,
-              {
-                action: 'REVERSAL_REQUESTED',
-                performedBy: 'ADMIN: ADM-0001',
-                createdAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
-              },
-              {
-                action: 'TRANSACTION_REVERSED',
-                performedBy: 'SYSTEM',
-                createdAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
-              },
-            ],
-          }
-          : item
-      )
-    );
+    // expect API transaction id numeric after prefix 'TXN-'
+    const maybeId = selectedTransaction.transactionId.replace(/^TXN-/, "");
+    const id = Number(maybeId);
+    if (Number.isNaN(id)) {
+      alert("Invalid transaction id for reversal");
+      return;
+    }
 
-    setReverseOpen(false);
-    setDetailOpen(false);
+    try {
+      setLoading(true);
+      setError("");
+      const resp = await apiReverse(id);
+
+      setTransactions((prev) =>
+        prev.map((item) =>
+          item.transactionId === selectedTransaction.transactionId
+            ? {
+                ...item,
+                status: "REVERSED",
+                logs: [
+                  ...item.logs,
+                  {
+                    action: "TRANSACTION_REVERSED",
+                    performedBy: "SYSTEM",
+                    createdAt: String(
+                      resp.transaction.created_at ?? new Date().toISOString(),
+                    ),
+                  },
+                ],
+              }
+            : item,
+        ),
+      );
+
+      setReverseOpen(false);
+      setDetailOpen(false);
+    } catch (err) {
+      setError(String(err instanceof Error ? err.message : err));
+      alert("Hoàn tiền thất bại: " + String(err));
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const loadTransactions = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const apiTxs = await getTransactions();
+      const mapped = apiTxs.map(
+        (t) =>
+          ({
+            transactionId: `TXN-${String((t as any).transaction_id)}`,
+            fromAccount:
+              (t as any).from_account_number ??
+              String((t as any).from_account_id ?? ""),
+            toAccount:
+              (t as any).to_account_number ??
+              String((t as any).to_account_id ?? ""),
+            senderName: (t as any).from_account_number ?? "",
+            receiverName: (t as any).to_account_number ?? "",
+            type:
+              (t as any).transaction_type ??
+              ((t as any).transaction_type as TransactionType) ??
+              "INTERNAL_TRANSFER",
+            amount: Number((t as any).amount) || 0,
+            fee: 0,
+            status: (t as any).status ?? "PENDING",
+            createdAt: (t as any).created_at
+              ? String((t as any).created_at)
+                  .slice(0, 16)
+                  .replace("T", " ")
+              : "",
+            performedBy: "",
+            note: "",
+            logs: [],
+          }) as Transaction,
+      );
+
+      setTransactions(mapped);
+    } catch (err) {
+      setError("Không thể tải giao dịch từ API");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTransfer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const fromId = Number(transferFromAccountId);
+    const toId = Number(transferToAccountId);
+    const amount = Number(transferAmount);
+
+    if (!fromId || !toId || !amount) {
+      alert("Vui lòng điền đầy đủ thông tin (ID tài khoản gửi, nhận và số tiền).");
+      return;
+    }
+
+    try {
+      setTransferLoading(true);
+      await transferMoney({
+        from_account_id: fromId,
+        to_account_id: toId,
+        amount: amount,
+      });
+      alert("Chuyển tiền thành công!");
+      setIsTransferModalOpen(false);
+      setTransferFromAccountId("");
+      setTransferToAccountId("");
+      setTransferAmount("");
+      await loadTransactions();
+    } catch (err) {
+      alert("Chuyển tiền thất bại: " + String(err instanceof Error ? err.message : err));
+    } finally {
+      setTransferLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadTransactions();
+  }, []);
 
   return (
     <div className="min-h-screen space-y-6 bg-slate-50 p-4 text-slate-900 md:p-6">
@@ -368,7 +501,9 @@ export default function Transactions() {
             </h2>
 
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
-              Tra cứu giao dịch, xem chi tiết, biên lai, trạng thái xử lý, log nghiệp vụ và lọc các giao dịch FAILED / CANCELLED / REVERSED để đối soát.
+              Tra cứu giao dịch, xem chi tiết, biên lai, trạng thái xử lý, log
+              nghiệp vụ và lọc các giao dịch FAILED / CANCELLED / REVERSED để
+              đối soát.
             </p>
           </div>
 
@@ -376,6 +511,13 @@ export default function Transactions() {
             <button className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
               <RefreshCw className="h-4 w-4" />
               Làm mới
+            </button>
+            <button 
+              onClick={() => setIsTransferModalOpen(true)}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700"
+            >
+              <ArrowRightLeft className="h-4 w-4" />
+              Chuyển tiền mới
             </button>
             <button className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#002147] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#001936]">
               <Download className="h-4 w-4" />
@@ -388,7 +530,9 @@ export default function Transactions() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <ReceiptText className="mb-4 h-6 w-6 text-[#002147]" />
-          <p className="text-xs font-bold uppercase text-slate-500">Tổng giao dịch</p>
+          <p className="text-xs font-bold uppercase text-slate-500">
+            Tổng giao dịch
+          </p>
           <p className="mt-2 text-3xl font-bold">{summary.total}</p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -408,8 +552,12 @@ export default function Transactions() {
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <ArrowRightLeft className="mb-4 h-6 w-6 text-purple-600" />
-          <p className="text-xs font-bold uppercase text-slate-500">Tổng tiền COMPLETED</p>
-          <p className="mt-2 text-2xl font-bold">{formatMoney(summary.totalAmount)}</p>
+          <p className="text-xs font-bold uppercase text-slate-500">
+            Tổng tiền COMPLETED
+          </p>
+          <p className="mt-2 text-2xl font-bold">
+            {formatMoney(summary.totalAmount)}
+          </p>
         </div>
       </div>
 
@@ -428,7 +576,9 @@ export default function Transactions() {
 
             <select
               value={typeFilter}
-              onChange={(event) => setTypeFilter(event.target.value as 'ALL' | TransactionType)}
+              onChange={(event) =>
+                setTypeFilter(event.target.value as "ALL" | TransactionType)
+              }
               className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-[#002147] xl:col-span-2"
             >
               <option value="ALL">Tất cả loại GD</option>
@@ -441,7 +591,9 @@ export default function Transactions() {
 
             <select
               value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value as 'ALL' | TransactionStatus)}
+              onChange={(event) =>
+                setStatusFilter(event.target.value as "ALL" | TransactionStatus)
+              }
               className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-[#002147] xl:col-span-2"
             >
               <option value="ALL">Tất cả trạng thái</option>
@@ -483,7 +635,7 @@ export default function Transactions() {
             />
 
             <button
-              onClick={() => setStatusFilter('FAILED')}
+              onClick={() => setStatusFilter("FAILED")}
               className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-bold text-red-700 hover:bg-red-100 xl:col-span-2"
             >
               <ShieldAlert className="h-4 w-4" />
@@ -501,15 +653,33 @@ export default function Transactions() {
           <table className="w-full min-w-[1250px] border-collapse text-left">
             <thead>
               <tr className="border-b border-slate-200 bg-white">
-                <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500">Mã GD</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500">Người gửi</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500">Người nhận</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500">Loại</th>
-                <th className="px-6 py-4 text-right text-xs font-bold uppercase text-slate-500">Số tiền</th>
-                <th className="px-6 py-4 text-right text-xs font-bold uppercase text-slate-500">Phí</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500">Trạng thái</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500">Thời gian</th>
-                <th className="px-6 py-4 text-right text-xs font-bold uppercase text-slate-500">Thao tác</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500">
+                  Mã GD
+                </th>
+                <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500">
+                  Người gửi
+                </th>
+                <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500">
+                  Người nhận
+                </th>
+                <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500">
+                  Loại
+                </th>
+                <th className="px-6 py-4 text-right text-xs font-bold uppercase text-slate-500">
+                  Số tiền
+                </th>
+                <th className="px-6 py-4 text-right text-xs font-bold uppercase text-slate-500">
+                  Phí
+                </th>
+                <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500">
+                  Trạng thái
+                </th>
+                <th className="px-6 py-4 text-xs font-bold uppercase text-slate-500">
+                  Thời gian
+                </th>
+                <th className="px-6 py-4 text-right text-xs font-bold uppercase text-slate-500">
+                  Thao tác
+                </th>
               </tr>
             </thead>
 
@@ -521,13 +691,21 @@ export default function Transactions() {
                   </td>
 
                   <td className="px-6 py-4">
-                    <p className="text-sm font-bold text-slate-950">{item.senderName}</p>
-                    <p className="font-mono text-xs text-slate-500">{item.fromAccount}</p>
+                    <p className="text-sm font-bold text-slate-950">
+                      {item.senderName}
+                    </p>
+                    <p className="font-mono text-xs text-slate-500">
+                      {item.fromAccount}
+                    </p>
                   </td>
 
                   <td className="px-6 py-4">
-                    <p className="text-sm font-bold text-slate-950">{item.receiverName}</p>
-                    <p className="font-mono text-xs text-slate-500">{item.toAccount}</p>
+                    <p className="text-sm font-bold text-slate-950">
+                      {item.receiverName}
+                    </p>
+                    <p className="font-mono text-xs text-slate-500">
+                      {item.toAccount}
+                    </p>
                   </td>
 
                   <td className="px-6 py-4">
@@ -551,7 +729,9 @@ export default function Transactions() {
                     </div>
                   </td>
 
-                  <td className="px-6 py-4 text-sm text-slate-500">{item.createdAt}</td>
+                  <td className="px-6 py-4 text-sm text-slate-500">
+                    {item.createdAt}
+                  </td>
 
                   <td className="px-6 py-4">
                     <div className="flex justify-end gap-2">
@@ -571,7 +751,7 @@ export default function Transactions() {
                         <FileText className="h-4 w-4" />
                       </button>
 
-                      {item.status === 'COMPLETED' && (
+                      {item.status === "COMPLETED" && (
                         <button
                           onClick={() => openReverse(item)}
                           className="rounded-lg border border-purple-200 p-2 text-purple-700 hover:bg-purple-50"
@@ -587,7 +767,10 @@ export default function Transactions() {
 
               {filteredTransactions.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-6 py-12 text-center text-sm font-semibold text-slate-500">
+                  <td
+                    colSpan={9}
+                    className="px-6 py-12 text-center text-sm font-semibold text-slate-500"
+                  >
                     Không tìm thấy giao dịch phù hợp.
                   </td>
                 </tr>
@@ -598,14 +781,20 @@ export default function Transactions() {
 
         <div className="flex flex-col justify-between gap-3 border-t border-slate-200 bg-slate-50/70 px-6 py-4 md:flex-row md:items-center">
           <p className="text-xs font-semibold text-slate-500">
-            Hiển thị {filteredTransactions.length} / {transactions.length} giao dịch
+            Hiển thị {filteredTransactions.length} / {transactions.length} giao
+            dịch
           </p>
 
           <div className="flex items-center gap-2">
-            <button className="rounded-lg border border-slate-200 bg-white p-2 text-slate-400" disabled>
+            <button
+              className="rounded-lg border border-slate-200 bg-white p-2 text-slate-400"
+              disabled
+            >
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <span className="rounded-lg bg-[#002147] px-3 py-1.5 text-xs font-bold text-white">1</span>
+            <span className="rounded-lg bg-[#002147] px-3 py-1.5 text-xs font-bold text-white">
+              1
+            </span>
             <button className="rounded-lg border border-slate-200 bg-white p-2 text-slate-600 hover:bg-slate-50">
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -632,7 +821,9 @@ export default function Transactions() {
                     {selectedTransaction.transactionId}
                   </h3>
 
-                  <p className="mt-2 text-sm text-slate-500">{selectedTransaction.note}</p>
+                  <p className="mt-2 text-sm text-slate-500">
+                    {selectedTransaction.note}
+                  </p>
                 </div>
 
                 <div className="flex gap-3">
@@ -649,46 +840,76 @@ export default function Transactions() {
 
               <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
                 <div className="rounded-2xl bg-[#002147] p-5 text-white">
-                  <p className="text-xs font-bold uppercase text-white/60">Số tiền</p>
+                  <p className="text-xs font-bold uppercase text-white/60">
+                    Số tiền
+                  </p>
                   <p className="mt-2 text-2xl font-bold">
                     {formatMoney(selectedTransaction.amount)}
                   </p>
                 </div>
 
                 <div className="rounded-2xl border border-slate-200 bg-white p-5">
-                  <p className="text-xs font-bold uppercase text-slate-500">Phí</p>
-                  <p className="mt-2 text-xl font-bold">{formatMoney(selectedTransaction.fee)}</p>
+                  <p className="text-xs font-bold uppercase text-slate-500">
+                    Phí
+                  </p>
+                  <p className="mt-2 text-xl font-bold">
+                    {formatMoney(selectedTransaction.fee)}
+                  </p>
                 </div>
 
                 <div className="rounded-2xl border border-slate-200 bg-white p-5">
-                  <p className="text-xs font-bold uppercase text-slate-500">Tổng trừ</p>
+                  <p className="text-xs font-bold uppercase text-slate-500">
+                    Tổng trừ
+                  </p>
                   <p className="mt-2 text-xl font-bold">
-                    {formatMoney(selectedTransaction.amount + selectedTransaction.fee)}
+                    {formatMoney(
+                      selectedTransaction.amount + selectedTransaction.fee,
+                    )}
                   </p>
                 </div>
               </div>
 
               <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                  <p className="text-xs font-bold uppercase text-slate-500">Tài khoản nguồn</p>
-                  <p className="mt-2 text-sm font-bold">{selectedTransaction.senderName}</p>
-                  <p className="font-mono text-sm text-[#002147]">{selectedTransaction.fromAccount}</p>
+                  <p className="text-xs font-bold uppercase text-slate-500">
+                    Tài khoản nguồn
+                  </p>
+                  <p className="mt-2 text-sm font-bold">
+                    {selectedTransaction.senderName}
+                  </p>
+                  <p className="font-mono text-sm text-[#002147]">
+                    {selectedTransaction.fromAccount}
+                  </p>
                 </div>
 
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                  <p className="text-xs font-bold uppercase text-slate-500">Tài khoản nhận</p>
-                  <p className="mt-2 text-sm font-bold">{selectedTransaction.receiverName}</p>
-                  <p className="font-mono text-sm text-[#002147]">{selectedTransaction.toAccount}</p>
+                  <p className="text-xs font-bold uppercase text-slate-500">
+                    Tài khoản nhận
+                  </p>
+                  <p className="mt-2 text-sm font-bold">
+                    {selectedTransaction.receiverName}
+                  </p>
+                  <p className="font-mono text-sm text-[#002147]">
+                    {selectedTransaction.toAccount}
+                  </p>
                 </div>
 
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                  <p className="text-xs font-bold uppercase text-slate-500">Loại giao dịch</p>
-                  <p className="mt-2 text-sm font-bold">{selectedTransaction.type}</p>
+                  <p className="text-xs font-bold uppercase text-slate-500">
+                    Loại giao dịch
+                  </p>
+                  <p className="mt-2 text-sm font-bold">
+                    {selectedTransaction.type}
+                  </p>
                 </div>
 
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                  <p className="text-xs font-bold uppercase text-slate-500">Thời gian</p>
-                  <p className="mt-2 text-sm font-bold">{selectedTransaction.createdAt}</p>
+                  <p className="text-xs font-bold uppercase text-slate-500">
+                    Thời gian
+                  </p>
+                  <p className="mt-2 text-sm font-bold">
+                    {selectedTransaction.createdAt}
+                  </p>
                 </div>
               </div>
             </div>
@@ -701,8 +922,13 @@ export default function Transactions() {
 
               <div className="space-y-3">
                 {selectedTransaction.logs.map((log, index) => (
-                  <div key={`${log.action}-${index}`} className="rounded-2xl border border-slate-200 p-4">
-                    <p className="text-sm font-bold text-slate-950">{log.action}</p>
+                  <div
+                    key={`${log.action}-${index}`}
+                    className="rounded-2xl border border-slate-200 p-4"
+                  >
+                    <p className="text-sm font-bold text-slate-950">
+                      {log.action}
+                    </p>
                     <p className="mt-1 text-xs text-slate-500">
                       {log.performedBy} • {log.createdAt}
                     </p>
@@ -727,7 +953,8 @@ export default function Transactions() {
               <div>
                 <p className="font-bold text-amber-900">Thao tác nhạy cảm</p>
                 <p className="mt-1 text-sm text-amber-800">
-                  Chỉ giao dịch COMPLETED mới được hoàn tiền. Sau khi hoàn tiền, trạng thái sẽ chuyển sang REVERSED.
+                  Chỉ giao dịch COMPLETED mới được hoàn tiền. Sau khi hoàn tiền,
+                  trạng thái sẽ chuyển sang REVERSED.
                 </p>
               </div>
             </div>
@@ -739,9 +966,12 @@ export default function Transactions() {
                 {selectedTransaction.transactionId}
               </p>
               <p className="mt-2 text-sm font-semibold">
-                {selectedTransaction.senderName} → {selectedTransaction.receiverName}
+                {selectedTransaction.senderName} →{" "}
+                {selectedTransaction.receiverName}
               </p>
-              <p className="mt-1 text-xl font-bold">{formatMoney(selectedTransaction.amount)}</p>
+              <p className="mt-1 text-xl font-bold">
+                {formatMoney(selectedTransaction.amount)}
+              </p>
             </div>
           )}
 
@@ -762,6 +992,72 @@ export default function Transactions() {
             </button>
           </div>
         </div>
+      </Modal>
+
+      <Modal
+        open={isTransferModalOpen}
+        onClose={() => setIsTransferModalOpen(false)}
+        title="Chuyển tiền mới"
+        maxWidth="max-w-md"
+      >
+        <form onSubmit={handleTransfer} className="space-y-4 p-6">
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold uppercase text-slate-500">
+              ID Tài khoản gửi
+            </label>
+            <input
+              type="number"
+              value={transferFromAccountId}
+              onChange={(e) => setTransferFromAccountId(e.target.value)}
+              placeholder="VD: 1"
+              required
+              className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-[#002147] focus:bg-white"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold uppercase text-slate-500">
+              ID Tài khoản nhận
+            </label>
+            <input
+              type="number"
+              value={transferToAccountId}
+              onChange={(e) => setTransferToAccountId(e.target.value)}
+              placeholder="VD: 2"
+              required
+              className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-[#002147] focus:bg-white"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold uppercase text-slate-500">
+              Số tiền (VND)
+            </label>
+            <input
+              type="number"
+              value={transferAmount}
+              onChange={(e) => setTransferAmount(e.target.value)}
+              placeholder="VD: 100000"
+              required
+              className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-[#002147] focus:bg-white"
+            />
+          </div>
+          
+          <div className="pt-4 flex justify-end gap-3 border-t border-slate-200 mt-6">
+            <button
+              type="button"
+              onClick={() => setIsTransferModalOpen(false)}
+              className="px-6 py-2.5 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-100 transition-all"
+            >
+              Hủy
+            </button>
+            <button
+              type="submit"
+              disabled={transferLoading}
+              className="px-6 py-2.5 rounded-xl text-sm font-bold bg-[#002147] text-white shadow-sm hover:bg-[#001936] transition-all disabled:opacity-50"
+            >
+              {transferLoading ? "Đang xử lý..." : "Chuyển tiền"}
+            </button>
+          </div>
+        </form>
       </Modal>
     </div>
   );

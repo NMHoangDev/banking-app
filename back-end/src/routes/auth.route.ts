@@ -64,7 +64,11 @@ authRoute.post("/register", async (req: Request, res: Response) => {
     address?: string;
   };
 
-  if (!username || !password || !full_name || !date_of_birth) {
+  const usernameValue = typeof username === "string" ? username.trim() : "";
+  const emailValue = typeof email === "string" ? email.trim() : undefined;
+  const phoneValue = typeof phone === "string" ? phone.trim() : undefined;
+
+  if (!usernameValue || !password || !full_name || !date_of_birth) {
     return res.status(400).json({ message: "Missing required fields" });
   }
 
@@ -78,18 +82,18 @@ authRoute.post("/register", async (req: Request, res: Response) => {
     await client.query("BEGIN");
 
     const usernameCheck = await client.query(
-      `SELECT 1 FROM core_schema.users WHERE username = $1 LIMIT 1`,
-      [username]
+      `SELECT 1 FROM core_schema.users WHERE LOWER(username) = LOWER($1) LIMIT 1`,
+      [usernameValue]
     );
     if ((usernameCheck.rowCount ?? 0) > 0) {
       await client.query("ROLLBACK");
       return res.status(409).json({ message: "Username already exists" });
     }
 
-    if (email) {
+    if (emailValue) {
       const emailCheck = await client.query(
-        `SELECT 1 FROM core_schema.customers WHERE email = $1 LIMIT 1`,
-        [email]
+        `SELECT 1 FROM core_schema.customers WHERE LOWER(email) = LOWER($1) LIMIT 1`,
+        [emailValue]
       );
       if ((emailCheck.rowCount ?? 0) > 0) {
         await client.query("ROLLBACK");
@@ -97,10 +101,10 @@ authRoute.post("/register", async (req: Request, res: Response) => {
       }
     }
 
-    if (phone) {
+    if (phoneValue) {
       const phoneCheck = await client.query(
         `SELECT 1 FROM core_schema.customers WHERE phone = $1 LIMIT 1`,
-        [phone]
+        [phoneValue]
       );
       if ((phoneCheck.rowCount ?? 0) > 0) {
         await client.query("ROLLBACK");
@@ -114,7 +118,14 @@ authRoute.post("/register", async (req: Request, res: Response) => {
        VALUES
         ($1, $2, $3, $4, $5, $6)
        RETURNING customer_id, full_name, date_of_birth, gender, phone, email, address, created_at`,
-      [full_name, date_of_birth, gender ?? null, phone ?? null, email ?? null, address ?? null]
+      [
+        full_name,
+        date_of_birth,
+        gender ?? null,
+        phoneValue ?? null,
+        emailValue ?? null,
+        address ?? null,
+      ]
     );
     const customer = customerResult.rows[0] as {
       customer_id: number;
@@ -152,7 +163,7 @@ authRoute.post("/register", async (req: Request, res: Response) => {
        VALUES
         ($1, $2, $3, 'ACTIVE', $4)
        RETURNING user_id, username, role_id, status, customer_id`,
-      [username, passwordHash, roleRow.role_id, customer.customer_id]
+      [usernameValue, passwordHash, roleRow.role_id, customer.customer_id]
     );
 
     const user = userResult.rows[0] as {
@@ -218,7 +229,9 @@ authRoute.post("/register", async (req: Request, res: Response) => {
 authRoute.post("/login", async (req: Request, res: Response) => {
   const { username, password } = req.body as { username?: string; password?: string };
 
-  if (!username || !password) {
+  const identifier = typeof username === "string" ? username.trim() : "";
+
+  if (!identifier || !password) {
     return res.status(400).json({ message: "Missing username or password" });
   }
 
@@ -241,8 +254,9 @@ authRoute.post("/login", async (req: Request, res: Response) => {
         ON u.role_id = r.role_id
       LEFT JOIN core_schema.customers c
         ON u.customer_id = c.customer_id
-      WHERE u.username = $1`,
-      [username]
+      WHERE LOWER(u.username) = LOWER($1)
+         OR LOWER(c.email) = LOWER($1)`,
+      [identifier]
     );
 
     if (result.rows.length === 0) {

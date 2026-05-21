@@ -4,8 +4,10 @@ import dotenv from "dotenv";
 import { testConnection } from "./db";
 import authRoute from "./routes/auth.route";
 import customersRoute from "./routes/customers.route";
+import usersRoute from "./routes/users.route";
 import accountsRoute from "./routes/accounts.route";
 import transactionsRoute from "./routes/transactions.route";
+import reportsRoute from "./routes/reports.route";
 
 dotenv.config();
 
@@ -24,7 +26,7 @@ const allowedOrigins = new Set(
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean)
-    .concat(defaultAllowedOrigins)
+    .concat(defaultAllowedOrigins),
 );
 
 app.use(
@@ -37,7 +39,7 @@ app.use(
       return callback(new Error(`CORS blocked for origin: ${origin}`));
     },
     credentials: true,
-  })
+  }),
 );
 
 app.use(express.json());
@@ -48,8 +50,10 @@ app.get("/", (_req, res) => {
 
 app.use("/api/auth", authRoute);
 app.use("/api/customers", customersRoute);
+app.use("/api/users", usersRoute);
 app.use("/api/accounts", accountsRoute);
 app.use("/api/transactions", transactionsRoute);
+app.use("/api/reports", reportsRoute);
 
 app.listen(port, async () => {
   console.log(`Server is running at http://localhost:${port}`);
