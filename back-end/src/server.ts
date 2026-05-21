@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import { testConnection } from "./db";
 import authRoute from "./routes/auth.route";
 import customersRoute from "./routes/customers.route";
+import usersRoute from "./routes/users.route";
 import accountsRoute from "./routes/accounts.route";
 import transactionsRoute from "./routes/transactions.route";
 import reportsRoute from "./routes/reports.route";
@@ -49,6 +50,7 @@ app.get("/", (_req, res) => {
 
 app.use("/api/auth", authRoute);
 app.use("/api/customers", customersRoute);
+app.use("/api/users", usersRoute);
 app.use("/api/accounts", accountsRoute);
 app.use("/api/transactions", transactionsRoute);
 app.use("/api/reports", reportsRoute);

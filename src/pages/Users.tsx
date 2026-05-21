@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { 
   Users, 
   Search, 
@@ -27,6 +27,18 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import Modal from '../components/ui/Modal';
+import { getUsers, type ApiUserRow } from '../services/users.service';
+
+type AppUser = {
+  id: string;
+  name: string;
+  role: string;
+  dept: string;
+  status: 'Active' | 'Inactive' | 'Suspended' | 'Locked';
+  email: string;
+  phone: string;
+  lastAccess?: string;
+};
 
 // Initial state data
 const initialAppUsers = [
@@ -74,11 +86,68 @@ export default function UsersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   
   // States
-  const [users, setUsers] = useState(initialAppUsers);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [usersError, setUsersError] = useState('');
+  const [users, setUsers] = useState<AppUser[]>([]);
   const [roles, setRoles] = useState(initialRoles);
   const [permissions, setPermissions] = useState(initialPermissions);
   const [rolePermissions, setRolePermissions] = useState(initialRolePermissions);
   const [auditLogs, setAuditLogs] = useState(initialAuditLogs);
+
+  useEffect(() => {
+    const loadUsers = async () => {
+      setLoadingUsers(true);
+      setUsersError('');
+
+      try {
+        const rows = await getUsers();
+        const mapped: AppUser[] = rows.map((row: ApiUserRow) => {
+          const userId = Number(row.user_id);
+          const displayId = Number.isFinite(userId)
+            ? `USR-${String(userId).padStart(3, '0')}`
+            : String(row.user_id);
+
+          const rawStatus = String(row.status || '').toUpperCase();
+          const status: AppUser['status'] =
+            rawStatus === 'ACTIVE'
+              ? 'Active'
+              : rawStatus === 'SUSPENDED'
+                ? 'Suspended'
+                : rawStatus === 'LOCKED'
+                  ? 'Locked'
+                  : 'Inactive';
+
+          const createdAt = row.customer_created_at
+            ? new Date(String(row.customer_created_at))
+            : null;
+          const lastAccess =
+            createdAt && !Number.isNaN(createdAt.getTime())
+              ? createdAt.toLocaleString('vi-VN')
+              : undefined;
+
+          return {
+            id: displayId,
+            name: row.full_name ?? row.username ?? displayId,
+            role: row.role_name ?? 'UNKNOWN',
+            dept: '-',
+            status,
+            email: row.email ?? '-',
+            phone: row.phone ?? '-',
+            lastAccess,
+          };
+        });
+
+        setUsers(mapped);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : '';
+        setUsersError(msg || 'Không thể tải danh sách users từ hệ thống.');
+      } finally {
+        setLoadingUsers(false);
+      }
+    };
+
+    void loadUsers();
+  }, []);
 
   // Modals
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
@@ -284,7 +353,31 @@ export default function UsersPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredUsers.map((user) => (
+                  {loadingUsers && (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-sm font-semibold text-outline">
+                        Đang tải danh sách users...
+                      </td>
+                    </tr>
+                  )}
+
+                  {!loadingUsers && usersError && (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-sm font-semibold text-error">
+                        {usersError}
+                      </td>
+                    </tr>
+                  )}
+
+                  {!loadingUsers && !usersError && filteredUsers.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-sm font-semibold text-outline">
+                        Không có user nào.
+                      </td>
+                    </tr>
+                  )}
+
+                  {!loadingUsers && !usersError && filteredUsers.map((user) => (
                     <tr key={user.id}>
                       <td>
                         <div className="flex items-center gap-3">
