@@ -26,7 +26,7 @@ const allowedOrigins = new Set(
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean)
-    .concat(defaultAllowedOrigins)
+    .concat(defaultAllowedOrigins),
 );
 
 app.use(
@@ -39,7 +39,7 @@ app.use(
       return callback(new Error(`CORS blocked for origin: ${origin}`));
     },
     credentials: true,
-  })
+  }),
 );
 
 app.use(express.json());

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   ChevronRight, 
   Download, 
@@ -12,13 +12,29 @@ import {
   Calendar
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { getAuditLogs } from '../services/auditlogs.service';
 
-const auditLogs = [
-  { user: 'Lê Văn Thành', initial: 'LT', ip: '192.168.1.45', action: 'UPDATE', table: 'ACCOUNTS', time: '25/05/2024 14:32:11', record: '#ACC-99281' },
-  { user: 'Nguyễn Thị Mai', initial: 'NM', ip: '10.0.0.12', action: 'DELETE', table: 'BENEFICIARIES', time: '25/05/2024 11:05:44', record: '#BEN-4410' },
-  { user: 'Trần Hoàng Nam', initial: 'TN', ip: '192.168.1.92', action: 'INSERT', table: 'TRANSACTIONS', time: '25/05/2024 09:12:00', record: '#TRX-882193' },
-  { user: 'Lê Văn Thành', initial: 'LT', ip: '192.168.1.45', action: 'UPDATE', table: 'LOAN_CONTRACTS', time: '24/05/2024 16:45:22', record: '#LN-3301' },
-];
+const AuditLogsPage: React.FC = () => {
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedLog, setSelectedLog] = useState<any>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    setLoading(true);
+    getAuditLogs()
+      .then((rows) => {
+        if (!mounted) return;
+        setAuditLogs(rows || []);
+      })
+      .catch((err) => {
+        console.error('Failed to load audit logs', err);
+        setError('Không thể tải nhật ký.');
+      })
+      .finally(() => setLoading(false));
+    return () => { mounted = false; };
+  }, []);
 
 export default function AuditLogs() {
   return (
@@ -86,11 +102,11 @@ export default function AuditLogs() {
                 <td className="px-8 py-5 text-sm">
                   <div className="flex items-center gap-4 text-xs font-bold ring-4 ring-white shadow-sm shrink-0">
                     <div className="w-8 h-8 rounded bg-surface-container-highest flex items-center justify-center text-primary font-bold text-xs">
-                      {log.initial}
+                      {log.initial || (log.performed_by ? log.performed_by.split(' ').map((s:any)=>s[0]).slice(-2).join('') : 'NN')}
                     </div>
                     <div>
-                      <p className="font-numeric text-on-surface font-black tracking-tight">{log.user}</p>
-                      <p className="text-[10px] text-on-surface-variant font-bold opacity-60">IP: {log.ip}</p>
+                        <p className="font-numeric text-on-surface font-black tracking-tight">{log.performed_by || log.user}</p>
+                        <p className="text-[10px] text-on-surface-variant font-bold opacity-60">IP: {log.ip || (log.details && log.details.ip) || '-'}</p>
                     </div>
                   </div>
                 </td>
@@ -104,11 +120,11 @@ export default function AuditLogs() {
                     {log.action}
                   </span>
                 </td>
-                <td className="px-8 py-5 font-numeric font-black text-sm text-on-surface tracking-widest opacity-80">{log.table}</td>
-                <td className="px-8 py-5 font-numeric font-bold text-xs text-on-surface-variant">{log.time}</td>
-                <td className="px-8 py-5 font-numeric font-bold text-[11px] text-on-surface-variant opacity-60 tracking-wider font-mono">{log.record}</td>
+                <td className="px-8 py-5 font-numeric font-black text-sm text-on-surface tracking-widest opacity-80">{log.table || log.object_table || '-'}</td>
+                <td className="px-8 py-5 font-numeric font-bold text-xs text-on-surface-variant">{log.created_at || log.time}</td>
+                <td className="px-8 py-5 font-numeric font-bold text-[11px] text-on-surface-variant opacity-60 tracking-wider font-mono">{log.id || '-'}</td>
                 <td className="px-8 py-5 text-right">
-                  <button className="text-primary font-black text-xs uppercase tracking-widest hover:underline">Chi tiết</button>
+                  <button onClick={() => setSelectedLog(log)} className="text-primary font-black text-xs uppercase tracking-widest hover:underline">Chi tiết</button>
                 </td>
               </tr>
             ))}
@@ -117,14 +133,14 @@ export default function AuditLogs() {
       </div>
 
       {/* Comparison Drawer Animation placeholder/Mockup */}
-      <div className="fixed inset-y-0 right-0 w-[500px] bg-white shadow-2xl z-50 border-l border-outline-variant translate-x-0 transition-transform duration-500 shadow-primary/20">
+      <div className={cn("fixed inset-y-0 right-0 w-[500px] bg-white shadow-2xl z-50 border-l border-outline-variant transition-transform duration-500 shadow-primary/20", selectedLog ? "translate-x-0" : "translate-x-full")}>
         <div className="h-full flex flex-col">
           <div className="p-8 border-b border-outline-variant flex justify-between items-center bg-surface-container-low/30">
             <div>
               <h3 className="font-display font-bold text-2xl text-primary tracking-tight">Chi Tiết Thay Đổi</h3>
-              <p className="text-[10px] font-black text-on-surface-variant tracking-[0.2em] mt-1 opacity-60 uppercase">ID: #LOG-882104 | ACCOUNTS</p>
+              <p className="text-[10px] font-black text-on-surface-variant tracking-[0.2em] mt-1 uppercase">ID: #{selectedLog?.id} | {selectedLog?.object_table}</p>
             </div>
-            <button className="p-3 hover:bg-surface-container-highest rounded-full transition-all text-on-surface-variant">
+            <button onClick={() => setSelectedLog(null)} className="p-3 hover:bg-surface-container-highest rounded-full transition-all text-on-surface-variant">
               <X className="w-6 h-6" />
             </button>
           </div>
@@ -133,19 +149,19 @@ export default function AuditLogs() {
             <div className="grid grid-cols-2 gap-6 bg-surface-container-low/40 p-6 rounded-3xl border border-outline-variant/30">
               <div>
                 <p className="label-uppercase text-[9px] tracking-widest text-on-surface-variant opacity-60 mb-2">Thời gian thực hiện</p>
-                <p className="font-numeric font-black text-sm">25/05/2024 14:32:11</p>
+                <p className="font-numeric font-black text-sm">{selectedLog?.created_at}</p>
               </div>
               <div>
                 <p className="label-uppercase text-[9px] tracking-widest text-on-surface-variant opacity-60 mb-2">Hành động</p>
-                <p className="font-numeric font-black text-xs text-secondary bg-secondary/5 px-2 py-1 rounded w-fit">UPDATE (Sửa đổi)</p>
+                <p className="font-numeric font-black text-xs text-secondary bg-secondary/5 px-2 py-1 rounded w-fit">{selectedLog?.action}</p>
               </div>
               <div>
                 <p className="label-uppercase text-[9px] tracking-widest text-on-surface-variant opacity-60 mb-2">Thực hiện bởi</p>
-                <p className="font-numeric font-black text-sm">Lê Văn Thành</p>
+                <p className="font-numeric font-black text-sm">{selectedLog?.performed_by}</p>
               </div>
               <div>
-                <p className="label-uppercase text-[9px] tracking-widest text-on-surface-variant opacity-60 mb-2">Địa chỉ IP</p>
-                <p className="font-numeric font-black text-sm">192.168.1.45</p>
+                <p className="label-uppercase text-[9px] tracking-widest text-on-surface-variant opacity-60 mb-2">Bảng</p>
+                <p className="font-numeric font-black text-sm">{selectedLog?.object_table}</p>
               </div>
             </div>
 
@@ -153,29 +169,19 @@ export default function AuditLogs() {
             
             <div className="space-y-10">
               <div className="space-y-4">
-                <label className="text-[10px] font-black tracking-widest text-on-surface-variant opacity-60 uppercase">Hạn mức giao dịch (Daily Limit)</label>
+                <label className="text-[10px] font-black tracking-widest text-on-surface-variant opacity-60 uppercase">Dữ liệu thay đổi</label>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="p-5 bg-error-container/20 border border-error/10 rounded-2xl">
+                  <div className="p-5 bg-error-container/20 border border-error/10 rounded-2xl overflow-hidden text-ellipsis">
                     <p className="text-[9px] text-error font-black tracking-widest mb-3 uppercase">TRƯỚC</p>
-                    <code className="text-xs font-black text-on-error-container bg-white px-3 py-1.5 rounded shadow-sm">50,000,000 VND</code>
+                    <pre className="text-xs font-black text-on-error-container bg-white px-3 py-1.5 rounded shadow-sm overflow-x-auto">
+                      {selectedLog?.old_value ? JSON.stringify(selectedLog.old_value, null, 2) : "Không có dữ liệu"}
+                    </pre>
                   </div>
-                  <div className="p-5 bg-secondary-container/20 border border-secondary/10 rounded-2xl">
+                  <div className="p-5 bg-secondary-container/20 border border-secondary/10 rounded-2xl overflow-hidden text-ellipsis">
                     <p className="text-[9px] text-secondary font-black tracking-widest mb-3 uppercase">SAU</p>
-                    <code className="text-xs font-black text-on-secondary-fixed-variant bg-white px-3 py-1.5 rounded shadow-sm scale-110 origin-left inline-block">200,000,000 VND</code>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4 text-xs font-bold text-on-surface tracking-tight">
-                <label className="text-[10px] font-black tracking-widest text-on-surface-variant opacity-60 uppercase">Trạng thái tài khoản (Status)</label>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-5 bg-error-container/20 border border-error/10 rounded-2xl">
-                    <p className="text-[9px] text-error font-black tracking-widest mb-3 uppercase">TRƯỚC</p>
-                    <code className="text-xs font-mono font-bold text-error">"PENDING_APPROVAL"</code>
-                  </div>
-                  <div className="p-5 bg-secondary-container/20 border border-secondary/10 rounded-2xl">
-                    <p className="text-[9px] text-secondary font-black tracking-widest mb-3 uppercase">SAU</p>
-                    <code className="text-xs font-mono font-bold text-secondary">"ACTIVE"</code>
+                    <pre className="text-xs font-black text-on-secondary-fixed-variant bg-white px-3 py-1.5 rounded shadow-sm overflow-x-auto">
+                      {selectedLog?.new_value ? JSON.stringify(selectedLog.new_value, null, 2) : "Không có dữ liệu"}
+                    </pre>
                   </div>
                 </div>
               </div>

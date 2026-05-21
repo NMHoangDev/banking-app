@@ -330,6 +330,51 @@ export default function Reports() {
     );
   };
 
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      setLoadingReports(true);
+      setReportsError(null);
+      try {
+        const rows = await getReports();
+        if (!mounted) return;
+        if (rows && rows.length) {
+          const mapped = rows.map((r: any, idx: number) => ({
+            id: r.report_id ? `REP-${r.report_id}` : `REP-${Date.now()}-${idx}`,
+            name: r.name || `Báo cáo ${r.type}`,
+            type: r.type || "Financial",
+            date: r.created_at
+              ? new Date(r.created_at).toLocaleDateString("vi-VN")
+              : new Date().toLocaleDateString("vi-VN"),
+            size: r.size || "-",
+            creator: r.creator || "Hệ thống",
+            status: r.status === "COMPLETED" ? "Completed" : "Pending",
+            downloadUrl: r.url || undefined,
+          }));
+          setReports(mapped);
+        }
+      } catch (err) {
+        console.error("Failed to load reports", err);
+        setReportsError("Không thể tải báo cáo; hiển thị dữ liệu mẫu.");
+        setReports(initialReports);
+      } finally {
+        setLoadingReports(false);
+      }
+      
+      try {
+        const summary = await getReportSummary();
+        if (!mounted) return;
+        setSummaryData(summary);
+      } catch (err) {
+        console.error("Failed to load summary", err);
+      }
+    };
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
@@ -496,7 +541,7 @@ export default function Reports() {
             </span>
 
             <span className="text-xs font-bold text-primary">
-              {selectedChartSegment || 'Di chuột vào các cột để xem chi tiết'}
+              {selectedChartSegment || "Di chuột vào các cột để xem chi tiết"}
             </span>
           </div>
         </div>

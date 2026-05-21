@@ -1,9 +1,9 @@
-import React, { useState, useMemo } from 'react';
-import { 
-  Search, 
-  Plus, 
-  ChevronRight, 
-  History, 
+import React, { useState, useMemo, useEffect } from "react";
+import {
+  Search,
+  Plus,
+  ChevronRight,
+  History,
   FileText,
   Download,
   Calendar,
@@ -13,21 +13,56 @@ import {
   Clock,
   ArrowRight,
   TrendingUp,
-  CreditCard
-} from 'lucide-react';
-import { cn } from '../lib/utils';
-import Modal from '../components/ui/Modal';
+  CreditCard,
+} from "lucide-react";
+import { cn } from "../lib/utils";
+import { getBills, createBill, updateBill } from "../services/bills.service";
+import Modal from "../components/ui/Modal";
 
 const initialBills = [
-  { id: 'BILL-44921', service: 'Tiền điện EVN', customer: 'Nguyễn Văn Thành', amount: '1,240,000', dueDate: '15/11/2023', status: 'Paid', provider: 'EVN Miền Bắc' },
-  { id: 'BILL-44922', service: 'Tiền nước Sawaco', customer: 'Lê Minh Hoàng', amount: '245,000', dueDate: '10/11/2023', status: 'Unpaid', provider: 'Sawaco TP.HCM' },
-  { id: 'BILL-44923', service: 'Internet Viettel', customer: 'Trần Thị Phương', amount: '350,000', dueDate: '20/11/2023', status: 'Paid', provider: 'Viettel Telecom' },
-  { id: 'BILL-44924', service: 'Chung cư Vinhomes', customer: 'Vũ Anh Duy', amount: '2,800,000', dueDate: '05/11/2023', status: 'Overdue', provider: 'Vinhomes Management' },
+  {
+    id: "BILL-44921",
+    service: "Tiền điện EVN",
+    customer: "Nguyễn Văn Thành",
+    amount: "1,240,000",
+    dueDate: "15/11/2023",
+    status: "Paid",
+    provider: "EVN Miền Bắc",
+  },
+  {
+    id: "BILL-44922",
+    service: "Tiền nước Sawaco",
+    customer: "Lê Minh Hoàng",
+    amount: "245,000",
+    dueDate: "10/11/2023",
+    status: "Unpaid",
+    provider: "Sawaco TP.HCM",
+  },
+  {
+    id: "BILL-44923",
+    service: "Internet Viettel",
+    customer: "Trần Thị Phương",
+    amount: "350,000",
+    dueDate: "20/11/2023",
+    status: "Paid",
+    provider: "Viettel Telecom",
+  },
+  {
+    id: "BILL-44924",
+    service: "Chung cư Vinhomes",
+    customer: "Vũ Anh Duy",
+    amount: "2,800,000",
+    dueDate: "05/11/2023",
+    status: "Overdue",
+    provider: "Vinhomes Management",
+  },
 ];
 
 export default function Bills() {
-  const [bills, setBills] = useState(initialBills);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [bills, setBills] = useState<any[]>([]);
+  const [loadingBills, setLoadingBills] = useState(false);
+  const [billsError, setBillsError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedBill, setSelectedBill] = useState<any>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -36,20 +71,21 @@ export default function Bills() {
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
   const [billToPay, setBillToPay] = useState<any>(null);
   const [payStep, setPayStep] = useState(1);
-  const [paymentAccount, setPaymentAccount] = useState('1000000001');
+  const [paymentAccount, setPaymentAccount] = useState("1000000001");
 
   // Form state for creating a bill
-  const [newService, setNewService] = useState('Tiền điện EVN');
-  const [newProvider, setNewProvider] = useState('EVN Miền Bắc');
-  const [newCustomer, setNewCustomer] = useState('Nguyễn Văn Thành');
-  const [newAmount, setNewAmount] = useState('850,000');
-  const [newDueDate, setNewDueDate] = useState('30/11/2023');
+  const [newService, setNewService] = useState("Tiền điện EVN");
+  const [newProvider, setNewProvider] = useState("EVN Miền Bắc");
+  const [newCustomer, setNewCustomer] = useState("Nguyễn Văn Thành");
+  const [newAmount, setNewAmount] = useState("850,000");
+  const [newDueDate, setNewDueDate] = useState("30/11/2023");
 
   const filteredBills = useMemo(() => {
-    return bills.filter(bill => 
-      bill.service.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      bill.id.includes(searchTerm) ||
-      bill.customer.toLowerCase().includes(searchTerm.toLowerCase())
+    return bills.filter(
+      (bill) =>
+        bill.service.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        bill.id.includes(searchTerm) ||
+        bill.customer.toLowerCase().includes(searchTerm.toLowerCase()),
     );
   }, [searchTerm, bills]);
 
@@ -70,35 +106,105 @@ export default function Bills() {
 
   const executePayment = () => {
     if (!billToPay) return;
-    
-    // Update bill status to 'Paid'
-    setBills(prevBills => 
-      prevBills.map(b => 
-        b.id === billToPay.id ? { ...b, status: 'Paid' } : b
-      )
-    );
 
-    setPayStep(3); // Go to Success Screen
+    // Optimistic update
+    const prev = bills;
+    setBills((prevBills) =>
+      prevBills.map((b) =>
+        b.id === billToPay.id ? { ...b, status: "Paid" } : b,
+      ),
+    );
+    if (selectedBill && selectedBill.id === billToPay.id)
+      setSelectedBill((s: any) => ({ ...s, status: "Paid" }));
+
+    // Call API to persist
+    const apiId = billToPay.apiId;
+    updateBill(apiId, { status: "Paid" })
+      .then(() => {
+        setPayStep(3);
+      })
+      .catch((err) => {
+        console.error("Failed to mark bill paid", err);
+        alert("Thanh toán không hoàn tất, thử lại sau.");
+        setBills(prev);
+        if (selectedBill && selectedBill.id === billToPay.id)
+          setSelectedBill(billToPay);
+        setPayStep(1);
+      });
   };
 
   const handleCreateBill = (e: React.FormEvent) => {
     e.preventDefault();
-    const generatedId = `BILL-${Math.floor(10000 + Math.random() * 90000)}`;
-    const newBill = {
-      id: generatedId,
-      service: newService,
-      customer: newCustomer,
-      amount: newAmount,
-      dueDate: newDueDate.split('-').reverse().join('/'), // Convert YYYY-MM-DD to DD/MM/YYYY
-      status: 'Unpaid',
-      provider: newProvider
+    const payload = {
+      bill_type: newService,
+      amount: parseInt(newAmount.replace(/,/g, "")) || 0,
+      due_date: newDueDate || null,
+      status: "UNPAID",
     };
 
-    setBills(prev => [newBill, ...prev]);
-    setIsAddModalOpen(false);
-    // Reset Form
-    setNewAmount('850,000');
+    createBill(payload)
+      .then((created: any) => {
+        const mapped = {
+          apiId: created.bill_id,
+          id: `BILL-${created.bill_id}`,
+          service: created.bill_type,
+          customer: newCustomer,
+          amount: (created.amount || 0).toLocaleString(),
+          dueDate: created.due_date
+            ? new Date(created.due_date).toLocaleDateString("vi-VN")
+            : "-",
+          status: created.status === "UNPAID" ? "Unpaid" : created.status,
+          provider: newProvider,
+        };
+        setBills((prev) => [mapped, ...prev]);
+        setIsAddModalOpen(false);
+        setNewAmount("850,000");
+      })
+      .catch((err) => {
+        console.error("Failed to create bill", err);
+        alert("Không thể tạo hóa đơn, thử lại sau.");
+      });
   };
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      setLoadingBills(true);
+      setBillsError(null);
+      try {
+        const rows = await getBills();
+        if (!mounted) return;
+        const mapped = rows.map((r: any) => ({
+          apiId: r.bill_id,
+          id: `BILL-${r.bill_id}`,
+          service: r.bill_type,
+          customer: r.customer_name || "Khách hàng",
+          amount: (r.amount || 0).toLocaleString(),
+          dueDate: r.due_date
+            ? new Date(r.due_date).toLocaleDateString("vi-VN")
+            : "-",
+          status:
+            r.status === "PAID" || r.status === "Paid"
+              ? "Paid"
+              : r.status === "OVERDUE"
+                ? "Overdue"
+                : "Unpaid",
+          provider: r.provider_name || "",
+        }));
+        setBills(mapped);
+      } catch (err) {
+        console.error("Failed to load bills", err);
+        setBillsError("Không thể tải danh sách hóa đơn, hiển thị dữ liệu mẫu.");
+        setBills(initialBills);
+      } finally {
+        setLoadingBills(false);
+      }
+    };
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -109,9 +215,11 @@ export default function Bills() {
             <ChevronRight className="w-3 h-3" />
             <span className="text-primary">Thanh toán hóa đơn</span>
           </nav>
-          <h2 className="font-display font-bold text-24 text-primary tracking-tight">Quản lý & Thanh toán hóa đơn</h2>
+          <h2 className="font-display font-bold text-24 text-primary tracking-tight">
+            Quản lý & Thanh toán hóa đơn
+          </h2>
         </div>
-        <button 
+        <button
           onClick={() => setIsAddModalOpen(true)}
           className="bg-[#002147] hover:bg-[#001936] text-white px-6 py-2.5 rounded-xl flex items-center gap-2 font-bold shadow-md transition-all active:scale-95 text-sm"
         >
@@ -122,18 +230,57 @@ export default function Bills() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'HÓA ĐƠN THÁNG NÀY', value: bills.length, icon: <Receipt className="w-5 h-5" />, color: 'primary' },
-          { label: 'CHƯA THANH TOÁN', value: bills.filter(b => b.status === 'Unpaid').length, icon: <Clock className="w-5 h-5" />, color: 'tertiary' },
-          { label: 'QUÁ HẠN 7 NGÀY', value: bills.filter(b => b.status === 'Overdue').length, icon: <AlertCircle className="w-5 h-5" />, color: 'error' },
-          { label: 'DOANH THU THU HỘ', value: bills.filter(b => b.status === 'Paid').reduce((sum, b) => sum + parseInt(b.amount.replace(/,/g, '')), 0).toLocaleString() + ' VND', icon: <TrendingUp className="w-5 h-5" />, color: 'secondary' },
+          {
+            label: "HÓA ĐƠN THÁNG NÀY",
+            value: bills.length,
+            icon: <Receipt className="w-5 h-5" />,
+            color: "primary",
+          },
+          {
+            label: "CHƯA THANH TOÁN",
+            value: bills.filter((b) => b.status === "Unpaid").length,
+            icon: <Clock className="w-5 h-5" />,
+            color: "tertiary",
+          },
+          {
+            label: "QUÁ HẠN 7 NGÀY",
+            value: bills.filter((b) => b.status === "Overdue").length,
+            icon: <AlertCircle className="w-5 h-5" />,
+            color: "error",
+          },
+          {
+            label: "DOANH THU THU HỘ",
+            value:
+              bills
+                .filter((b) => b.status === "Paid")
+                .reduce(
+                  (sum, b) => sum + parseInt(b.amount.replace(/,/g, "")),
+                  0,
+                )
+                .toLocaleString() + " VND",
+            icon: <TrendingUp className="w-5 h-5" />,
+            color: "secondary",
+          },
         ].map((stat, i) => (
-          <div key={i} className="bg-white p-5 rounded-2xl border border-outline-variant shadow-sm flex flex-col justify-between">
-            <div className={cn("p-2.5 rounded-xl w-fit mb-4", `bg-${stat.color}-container text-on-${stat.color}-container`)}>
+          <div
+            key={i}
+            className="bg-white p-5 rounded-2xl border border-outline-variant shadow-sm flex flex-col justify-between"
+          >
+            <div
+              className={cn(
+                "p-2.5 rounded-xl w-fit mb-4",
+                `bg-${stat.color}-container text-on-${stat.color}-container`,
+              )}
+            >
               {stat.icon}
             </div>
             <div>
-              <p className="label-uppercase text-on-surface-variant mb-1">{stat.label}</p>
-              <p className="font-display font-bold text-xl text-primary">{stat.value}</p>
+              <p className="label-uppercase text-on-surface-variant mb-1">
+                {stat.label}
+              </p>
+              <p className="font-display font-bold text-xl text-primary">
+                {stat.value}
+              </p>
             </div>
           </div>
         ))}
@@ -143,9 +290,9 @@ export default function Bills() {
         <div className="p-4 flex flex-wrap items-center gap-4 border-b border-outline-variant bg-surface-container-low/30">
           <div className="relative flex-1 max-w-sm">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-outline" />
-            <input 
-              type="text" 
-              placeholder="Tìm kiếm hóa đơn, dịch vụ..." 
+            <input
+              type="text"
+              placeholder="Tìm kiếm hóa đơn, dịch vụ..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full bg-surface border border-outline-variant rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
@@ -179,18 +326,28 @@ export default function Bills() {
                       <div className="p-2 bg-primary/5 text-primary rounded-lg border border-primary/10">
                         <Receipt className="w-4 h-4" />
                       </div>
-                      <span className="font-bold text-sm text-primary">{bill.service}</span>
+                      <span className="font-bold text-sm text-primary">
+                        {bill.service}
+                      </span>
                     </div>
                   </td>
                   <td>
-                    <p className="text-xs font-bold text-on-surface-variant">{bill.provider}</p>
-                    <p className="text-[10px] text-outline font-bold uppercase tracking-tighter">REF: {bill.id}</p>
+                    <p className="text-xs font-bold text-on-surface-variant">
+                      {bill.provider}
+                    </p>
+                    <p className="text-[10px] text-outline font-bold uppercase tracking-tighter">
+                      REF: {bill.id}
+                    </p>
                   </td>
                   <td>
-                    <span className="font-bold text-sm text-on-surface truncate max-w-[120px] block">{bill.customer}</span>
+                    <span className="font-bold text-sm text-on-surface truncate max-w-[120px] block">
+                      {bill.customer}
+                    </span>
                   </td>
                   <td className="text-right">
-                    <span className="font-numeric-data text-sm font-bold text-primary">{bill.amount}</span>
+                    <span className="font-numeric-data text-sm font-bold text-primary">
+                      {bill.amount}
+                    </span>
                   </td>
                   <td>
                     <div className="flex items-center gap-2 text-xs font-bold text-on-surface-variant">
@@ -199,29 +356,41 @@ export default function Bills() {
                     </div>
                   </td>
                   <td className="text-center">
-                    <span className={cn(
-                      "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase",
-                      bill.status === 'Paid' ? 'bg-secondary-container text-on-secondary-container' : 
-                      bill.status === 'Overdue' ? 'bg-error-container text-on-error-container' : 
-                      'bg-surface-container-highest text-on-surface-variant'
-                    )}>
-                      {bill.status === 'Paid' ? <CheckCircle2 className="w-3 h-3" /> : 
-                       bill.status === 'Overdue' ? <AlertCircle className="w-3 h-3" /> : 
-                       <Clock className="w-3 h-3" />}
-                      {bill.status === 'Paid' ? 'Đã thanh toán' : bill.status === 'Overdue' ? 'Quá hạn' : 'Chờ thanh toán'}
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase",
+                        bill.status === "Paid"
+                          ? "bg-secondary-container text-on-secondary-container"
+                          : bill.status === "Overdue"
+                            ? "bg-error-container text-on-error-container"
+                            : "bg-surface-container-highest text-on-surface-variant",
+                      )}
+                    >
+                      {bill.status === "Paid" ? (
+                        <CheckCircle2 className="w-3 h-3" />
+                      ) : bill.status === "Overdue" ? (
+                        <AlertCircle className="w-3 h-3" />
+                      ) : (
+                        <Clock className="w-3 h-3" />
+                      )}
+                      {bill.status === "Paid"
+                        ? "Đã thanh toán"
+                        : bill.status === "Overdue"
+                          ? "Quá hạn"
+                          : "Chờ thanh toán"}
                     </span>
                   </td>
                   <td className="text-right">
                     <div className="flex justify-end gap-2">
-                      <button 
+                      <button
                         onClick={() => handleOpenDetail(bill)}
                         className="p-1.5 hover:bg-surface-container-high rounded transition-colors text-primary"
                         title="Xem chi tiết"
                       >
                         <FileText className="w-4 h-4" />
                       </button>
-                      {bill.status !== 'Paid' && (
-                        <button 
+                      {bill.status !== "Paid" && (
+                        <button
                           onClick={() => handleOpenPayFlow(bill)}
                           className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded-lg uppercase shadow-sm transition-all"
                           title="Thanh toán"
@@ -235,7 +404,12 @@ export default function Bills() {
               ))}
               {filteredBills.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="py-10 text-center text-outline font-medium">Không tìm thấy hóa đơn phù hợp</td>
+                  <td
+                    colSpan={7}
+                    className="py-10 text-center text-outline font-medium"
+                  >
+                    Không tìm thấy hóa đơn phù hợp
+                  </td>
                 </tr>
               )}
             </tbody>
@@ -244,96 +418,154 @@ export default function Bills() {
       </div>
 
       {/* Add Bill Modal */}
-      <Modal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} title="Tạo hóa đơn thanh toán mới">
+      <Modal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        title="Tạo hóa đơn thanh toán mới"
+      >
         <form onSubmit={handleCreateBill} className="p-6 space-y-4">
           <div className="space-y-1.5">
-            <label className="text-[10px] font-bold uppercase text-on-surface-variant">Loại dịch vụ</label>
-            <select 
-              value={newService} 
+            <label className="text-[10px] font-bold uppercase text-on-surface-variant">
+              Loại dịch vụ
+            </label>
+            <select
+              value={newService}
               onChange={(e) => {
                 setNewService(e.target.value);
                 const providers: Record<string, string> = {
-                  'Tiền điện EVN': 'EVN Miền Bắc',
-                  'Tiền nước Sawaco': 'Sawaco TP.HCM',
-                  'Internet Viettel': 'Viettel Telecom',
-                  'Chung cư Vinhomes': 'Vinhomes Management'
+                  "Tiền điện EVN": "EVN Miền Bắc",
+                  "Tiền nước Sawaco": "Sawaco TP.HCM",
+                  "Internet Viettel": "Viettel Telecom",
+                  "Chung cư Vinhomes": "Vinhomes Management",
                 };
-                setNewProvider(providers[e.target.value] || 'Công ty viễn thông');
+                setNewProvider(
+                  providers[e.target.value] || "Công ty viễn thông",
+                );
               }}
               className="w-full bg-surface border border-outline-variant rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
             >
               <option value="Tiền điện EVN">Tiền điện EVN</option>
               <option value="Tiền nước Sawaco">Tiền nước Sawaco</option>
-              <option value="Internet Viettel">Viễn thông / Internet Viettel</option>
+              <option value="Internet Viettel">
+                Viễn thông / Internet Viettel
+              </option>
               <option value="Chung cư Vinhomes">Phí chung cư / Vinhomes</option>
             </select>
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-[10px] font-bold uppercase text-on-surface-variant">Đối tác thu hộ (Provider)</label>
-            <input 
-              type="text" 
+            <label className="text-[10px] font-bold uppercase text-on-surface-variant">
+              Đối tác thu hộ (Provider)
+            </label>
+            <input
+              type="text"
               required
               value={newProvider}
               onChange={(e) => setNewProvider(e.target.value)}
-              className="w-full bg-surface border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none" 
+              className="w-full bg-surface border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none"
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-[10px] font-bold uppercase text-on-surface-variant">Tên khách hàng</label>
-            <input 
-              type="text" 
+            <label className="text-[10px] font-bold uppercase text-on-surface-variant">
+              Tên khách hàng
+            </label>
+            <input
+              type="text"
               required
               value={newCustomer}
               onChange={(e) => setNewCustomer(e.target.value)}
               placeholder="Nhập tên chủ hộ/khách hàng..."
-              className="w-full bg-surface border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none" 
+              className="w-full bg-surface border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase text-on-surface-variant">Số tiền thu (VND)</label>
-              <input 
-                type="text" 
+              <label className="text-[10px] font-bold uppercase text-on-surface-variant">
+                Số tiền thu (VND)
+              </label>
+              <input
+                type="text"
                 required
                 value={newAmount}
                 onChange={(e) => setNewAmount(e.target.value)}
-                placeholder="0 VNĐ" 
-                className="w-full bg-surface border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none" 
+                placeholder="0 VNĐ"
+                className="w-full bg-surface border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase text-on-surface-variant">Ngày hết hạn</label>
-              <input 
-                type="date" 
+              <label className="text-[10px] font-bold uppercase text-on-surface-variant">
+                Ngày hết hạn
+              </label>
+              <input
+                type="date"
                 required
                 value={newDueDate}
                 onChange={(e) => setNewDueDate(e.target.value)}
-                className="w-full bg-surface border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none" 
+                className="w-full bg-surface border border-outline-variant rounded-lg px-4 py-2.5 text-sm focus:outline-none"
               />
             </div>
           </div>
 
           <div className="pt-4 flex justify-end gap-3 border-t border-outline-variant">
-            <button type="button" onClick={() => setIsAddModalOpen(false)} className="px-6 py-2 rounded-lg text-sm font-bold text-on-surface-variant hover:bg-surface-container-low transition-all">Hủy bỏ</button>
-            <button type="submit" className="px-6 py-2 rounded-lg text-sm font-bold bg-[#002147] text-white shadow-sm hover:shadow-lg transition-all active:scale-95">Tạo hóa đơn</button>
+            <button
+              type="button"
+              onClick={() => setIsAddModalOpen(false)}
+              className="px-6 py-2 rounded-lg text-sm font-bold text-on-surface-variant hover:bg-surface-container-low transition-all"
+            >
+              Hủy bỏ
+            </button>
+            <button
+              type="submit"
+              className="px-6 py-2 rounded-lg text-sm font-bold bg-[#002147] text-white shadow-sm hover:shadow-lg transition-all active:scale-95"
+            >
+              Tạo hóa đơn
+            </button>
           </div>
         </form>
       </Modal>
 
       {/* 2-Step Bill Payment Modal */}
-      <Modal isOpen={isPayModalOpen} onClose={() => setIsPayModalOpen(false)} title="Thanh toán hóa đơn">
+      <Modal
+        isOpen={isPayModalOpen}
+        onClose={() => setIsPayModalOpen(false)}
+        title="Thanh toán hóa đơn"
+      >
         {billToPay && (
           <div className="p-6 space-y-4">
             {/* Step Indicators */}
             <div className="flex items-center justify-center gap-4 mb-4">
-              <div className={cn("w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold", payStep >= 1 ? "bg-[#002147] text-white" : "bg-surface-container-high text-on-surface-variant")}>1</div>
+              <div
+                className={cn(
+                  "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold",
+                  payStep >= 1
+                    ? "bg-[#002147] text-white"
+                    : "bg-surface-container-high text-on-surface-variant",
+                )}
+              >
+                1
+              </div>
               <div className="w-12 h-0.5 bg-outline-variant"></div>
-              <div className={cn("w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold", payStep >= 2 ? "bg-[#002147] text-white" : "bg-surface-container-high text-on-surface-variant")}>2</div>
+              <div
+                className={cn(
+                  "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold",
+                  payStep >= 2
+                    ? "bg-[#002147] text-white"
+                    : "bg-surface-container-high text-on-surface-variant",
+                )}
+              >
+                2
+              </div>
               <div className="w-12 h-0.5 bg-outline-variant"></div>
-              <div className={cn("w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold", payStep >= 3 ? "bg-emerald-600 text-white" : "bg-surface-container-high text-on-surface-variant")}>
+              <div
+                className={cn(
+                  "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold",
+                  payStep >= 3
+                    ? "bg-emerald-600 text-white"
+                    : "bg-surface-container-high text-on-surface-variant",
+                )}
+              >
                 {payStep === 3 ? <CheckCircle2 className="w-4 h-4" /> : "3"}
               </div>
             </div>
@@ -342,32 +574,59 @@ export default function Bills() {
             {payStep === 1 && (
               <div className="space-y-4">
                 <div className="p-4 bg-surface-container rounded-2xl border border-outline-variant/30">
-                  <p className="text-[9px] font-bold text-outline uppercase tracking-wider mb-1">Hóa đơn cần thanh toán</p>
+                  <p className="text-[9px] font-bold text-outline uppercase tracking-wider mb-1">
+                    Hóa đơn cần thanh toán
+                  </p>
                   <div className="flex justify-between items-center">
                     <div>
-                      <h4 className="text-sm font-bold text-[#002147]">{billToPay.service}</h4>
-                      <p className="text-[10px] text-on-surface-variant font-bold uppercase">{billToPay.provider} ({billToPay.id})</p>
+                      <h4 className="text-sm font-bold text-[#002147]">
+                        {billToPay.service}
+                      </h4>
+                      <p className="text-[10px] text-on-surface-variant font-bold uppercase">
+                        {billToPay.provider} ({billToPay.id})
+                      </p>
                     </div>
-                    <span className="text-base font-bold text-[#002147]">{billToPay.amount} VND</span>
+                    <span className="text-base font-bold text-[#002147]">
+                      {billToPay.amount} VND
+                    </span>
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold uppercase text-on-surface-variant">Chọn tài khoản thanh toán</label>
-                  <select 
-                    value={paymentAccount} 
+                  <label className="text-[10px] font-bold uppercase text-on-surface-variant">
+                    Chọn tài khoản thanh toán
+                  </label>
+                  <select
+                    value={paymentAccount}
                     onChange={(e) => setPaymentAccount(e.target.value)}
                     className="w-full bg-surface border border-outline-variant rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                   >
-                    <option value="1000000001">1000000001 - Nguyễn Văn Thành ( saving ) • Số dư: 245,000,000 VND</option>
-                    <option value="1000000003">1000000003 - Lê Minh Hoàng ( payment ) • Số dư: 18,500,000 VND</option>
-                    <option value="1000000002">1000000002 - Vũ Anh Duy ( personal ) • Số dư: 45,000,000 VND</option>
+                    <option value="1000000001">
+                      1000000001 - Nguyễn Văn Thành ( saving ) • Số dư:
+                      245,000,000 VND
+                    </option>
+                    <option value="1000000003">
+                      1000000003 - Lê Minh Hoàng ( payment ) • Số dư: 18,500,000
+                      VND
+                    </option>
+                    <option value="1000000002">
+                      1000000002 - Vũ Anh Duy ( personal ) • Số dư: 45,000,000
+                      VND
+                    </option>
                   </select>
                 </div>
 
                 <div className="pt-4 flex justify-end gap-3 border-t border-outline-variant">
-                  <button onClick={() => setIsPayModalOpen(false)} className="px-6 py-2 rounded-lg text-sm font-bold text-on-surface-variant hover:bg-surface-container-low transition-all">Hủy bỏ</button>
-                  <button onClick={handleNextStep} className="px-6 py-2 rounded-lg text-sm font-bold bg-[#002147] text-white shadow-sm hover:shadow-lg transition-all flex items-center gap-2">
+                  <button
+                    onClick={() => setIsPayModalOpen(false)}
+                    className="px-6 py-2 rounded-lg text-sm font-bold text-on-surface-variant hover:bg-surface-container-low transition-all"
+                  >
+                    Hủy bỏ
+                  </button>
+                  <button
+                    onClick={handleNextStep}
+                    className="px-6 py-2 rounded-lg text-sm font-bold bg-[#002147] text-white shadow-sm hover:shadow-lg transition-all flex items-center gap-2"
+                  >
                     Tiếp tục <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
@@ -380,36 +639,60 @@ export default function Bills() {
                 <div className="p-4 bg-yellow-50/50 rounded-2xl border border-yellow-200 flex gap-3 items-start">
                   <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                   <p className="text-xs text-amber-800 leading-relaxed">
-                    Bạn đang thực hiện thanh toán hóa đơn. Hãy chắc chắn các thông tin dưới đây là hoàn toàn chính xác trước khi xác nhận.
+                    Bạn đang thực hiện thanh toán hóa đơn. Hãy chắc chắn các
+                    thông tin dưới đây là hoàn toàn chính xác trước khi xác
+                    nhận.
                   </p>
                 </div>
 
                 <div className="space-y-2.5 p-4 bg-surface rounded-2xl border border-outline-variant/30">
                   <div className="flex justify-between items-center text-xs pb-2 border-b border-outline-variant/20">
                     <span className="text-on-surface-variant">Dịch vụ</span>
-                    <span className="font-bold text-primary">{billToPay.service}</span>
+                    <span className="font-bold text-primary">
+                      {billToPay.service}
+                    </span>
                   </div>
                   <div className="flex justify-between items-center text-xs pb-2 border-b border-outline-variant/20">
                     <span className="text-on-surface-variant">Đối tác thu</span>
                     <span className="font-bold">{billToPay.provider}</span>
                   </div>
                   <div className="flex justify-between items-center text-xs pb-2 border-b border-outline-variant/20">
-                    <span className="text-on-surface-variant">Tài khoản thanh toán</span>
-                    <span className="font-mono font-bold text-primary">{paymentAccount}</span>
+                    <span className="text-on-surface-variant">
+                      Tài khoản thanh toán
+                    </span>
+                    <span className="font-mono font-bold text-primary">
+                      {paymentAccount}
+                    </span>
                   </div>
                   <div className="flex justify-between items-center text-xs pb-2 border-b border-outline-variant/20">
-                    <span className="text-on-surface-variant">Số tiền thanh toán</span>
-                    <span className="font-bold text-[#002147] text-sm">{billToPay.amount} VND</span>
+                    <span className="text-on-surface-variant">
+                      Số tiền thanh toán
+                    </span>
+                    <span className="font-bold text-[#002147] text-sm">
+                      {billToPay.amount} VND
+                    </span>
                   </div>
                   <div className="flex justify-between items-center text-xs">
-                    <span className="text-on-surface-variant">Phí giao dịch</span>
-                    <span className="font-bold text-emerald-600">Miễn phí (0 VND)</span>
+                    <span className="text-on-surface-variant">
+                      Phí giao dịch
+                    </span>
+                    <span className="font-bold text-emerald-600">
+                      Miễn phí (0 VND)
+                    </span>
                   </div>
                 </div>
 
                 <div className="pt-4 flex justify-end gap-3 border-t border-outline-variant">
-                  <button onClick={() => setPayStep(1)} className="px-6 py-2 rounded-lg text-sm font-bold text-on-surface-variant hover:bg-surface-container-low transition-all">Quay lại</button>
-                  <button onClick={executePayment} className="px-6 py-2 rounded-lg text-sm font-bold bg-emerald-600 text-white shadow-sm hover:shadow-lg transition-all active:scale-95">
+                  <button
+                    onClick={() => setPayStep(1)}
+                    className="px-6 py-2 rounded-lg text-sm font-bold text-on-surface-variant hover:bg-surface-container-low transition-all"
+                  >
+                    Quay lại
+                  </button>
+                  <button
+                    onClick={executePayment}
+                    className="px-6 py-2 rounded-lg text-sm font-bold bg-emerald-600 text-white shadow-sm hover:shadow-lg transition-all active:scale-95"
+                  >
                     Xác nhận thanh toán
                   </button>
                 </div>
@@ -423,14 +706,20 @@ export default function Bills() {
                   <CheckCircle2 className="w-8 h-8" />
                 </div>
                 <div>
-                  <h3 className="font-display font-bold text-lg text-primary">Thanh toán thành công!</h3>
-                  <p className="text-xs text-on-surface-variant mt-1">Hóa đơn dịch vụ của bạn đã được thanh toán hoàn tất.</p>
+                  <h3 className="font-display font-bold text-lg text-primary">
+                    Thanh toán thành công!
+                  </h3>
+                  <p className="text-xs text-on-surface-variant mt-1">
+                    Hóa đơn dịch vụ của bạn đã được thanh toán hoàn tất.
+                  </p>
                 </div>
 
                 <div className="p-4 bg-surface-container-low rounded-2xl border border-outline-variant/30 text-left space-y-2 max-w-sm mx-auto">
                   <div className="flex justify-between text-xs">
                     <span className="text-outline">Mã giao dịch:</span>
-                    <span className="font-mono font-bold">#TXN-{Math.floor(100000 + Math.random() * 900000)}</span>
+                    <span className="font-mono font-bold">
+                      #TXN-{Math.floor(100000 + Math.random() * 900000)}
+                    </span>
                   </div>
                   <div className="flex justify-between text-xs">
                     <span className="text-outline">Dịch vụ:</span>
@@ -438,16 +727,20 @@ export default function Bills() {
                   </div>
                   <div className="flex justify-between text-xs">
                     <span className="text-outline">Số tiền:</span>
-                    <span className="font-bold text-primary">{billToPay.amount} VND</span>
+                    <span className="font-bold text-primary">
+                      {billToPay.amount} VND
+                    </span>
                   </div>
                   <div className="flex justify-between text-xs">
                     <span className="text-outline">Từ tài khoản:</span>
-                    <span className="font-mono font-bold">{paymentAccount}</span>
+                    <span className="font-mono font-bold">
+                      {paymentAccount}
+                    </span>
                   </div>
                 </div>
 
-                <button 
-                  onClick={() => setIsPayModalOpen(false)} 
+                <button
+                  onClick={() => setIsPayModalOpen(false)}
                   className="w-full max-w-xs py-2.5 bg-[#002147] hover:bg-[#001936] text-white text-xs font-bold rounded-xl shadow-md transition-all uppercase"
                 >
                   Hoàn tất
@@ -459,15 +752,23 @@ export default function Bills() {
       </Modal>
 
       {/* Detail Modal */}
-      <Modal isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)} title="Hóa đơn điện tử chi tiết">
+      <Modal
+        isOpen={isDetailModalOpen}
+        onClose={() => setIsDetailModalOpen(false)}
+        title="Hóa đơn điện tử chi tiết"
+      >
         {selectedBill && (
           <div className="p-6 space-y-6">
             <div className="p-6 bg-surface-container rounded-3xl border border-outline-variant flex flex-col items-center text-center">
               <div className="p-3 bg-white rounded-2xl shadow-sm mb-4 ring-1 ring-outline-variant/50">
                 <Receipt className="w-8 h-8 text-primary" />
               </div>
-              <h4 className="font-display font-bold text-lg text-primary">{selectedBill.service}</h4>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-outline">{selectedBill.provider}</p>
+              <h4 className="font-display font-bold text-lg text-primary">
+                {selectedBill.service}
+              </h4>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-outline">
+                {selectedBill.provider}
+              </p>
               <div className="mt-4 py-2 px-6 bg-white rounded-full border border-outline-variant shadow-inner font-numeric-data text-xl font-bold text-primary">
                 {selectedBill.amount} VNĐ
               </div>
@@ -476,7 +777,9 @@ export default function Bills() {
             <div className="space-y-3">
               <div className="flex justify-between items-center text-xs py-2 border-b border-outline-variant/30">
                 <span className="text-on-surface-variant">Mã hóa đơn</span>
-                <span className="font-bold text-primary">{selectedBill.id}</span>
+                <span className="font-bold text-primary">
+                  {selectedBill.id}
+                </span>
               </div>
               <div className="flex justify-between items-center text-xs py-2 border-b border-outline-variant/30">
                 <span className="text-on-surface-variant">Khách hàng</span>
@@ -484,25 +787,37 @@ export default function Bills() {
               </div>
               <div className="flex justify-between items-center text-xs py-2 border-b border-outline-variant/30">
                 <span className="text-on-surface-variant">Hạn thanh toán</span>
-                <span className="font-bold text-error">{selectedBill.dueDate}</span>
+                <span className="font-bold text-error">
+                  {selectedBill.dueDate}
+                </span>
               </div>
               <div className="flex justify-between items-center text-xs py-2 border-b border-outline-variant/30">
                 <span className="text-on-surface-variant">Trạng thái</span>
-                <span className={cn(
-                  "font-bold uppercase text-[9px] px-2.5 py-0.5 rounded-full",
-                  selectedBill.status === 'Paid' ? 'bg-secondary-container text-on-secondary-container' : 'bg-error-container text-on-error-container'
-                )}>{selectedBill.status === 'Paid' ? 'Đã thu' : 'Chờ thu'}</span>
+                <span
+                  className={cn(
+                    "font-bold uppercase text-[9px] px-2.5 py-0.5 rounded-full",
+                    selectedBill.status === "Paid"
+                      ? "bg-secondary-container text-on-secondary-container"
+                      : "bg-error-container text-on-error-container",
+                  )}
+                >
+                  {selectedBill.status === "Paid" ? "Đã thu" : "Chờ thu"}
+                </span>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3 pt-4">
               <button className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-surface border border-outline-variant hover:bg-surface-container-low transition-all">
                 <History className="w-6 h-6 text-primary" />
-                <span className="text-[9px] font-bold uppercase text-primary">Lịch sử thu</span>
+                <span className="text-[9px] font-bold uppercase text-primary">
+                  Lịch sử thu
+                </span>
               </button>
               <button className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-surface border border-outline-variant hover:bg-surface-container-low transition-all">
                 <CreditCard className="w-6 h-6 text-primary" />
-                <span className="text-[9px] font-bold uppercase text-primary">Gửi nhắc nhợ</span>
+                <span className="text-[9px] font-bold uppercase text-primary">
+                  Gửi nhắc nhợ
+                </span>
               </button>
             </div>
 
